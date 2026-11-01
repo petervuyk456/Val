@@ -1,0 +1,345 @@
+# ===========================================================================
+[[epic]]
+id = "E09"
+title = "Agent Runtime"
+theme = "agents"
+goal = "A backend-agnostic way to invoke role agents with enforced tool policy, schema-validated output, and exact accounting."
+milestone = "M3"
+lang = ["rust"]
+
+[[issue]]
+id = "E09-01"
+title = "AgentRuntime trait and contract types"
+deps = ["E01-01", "E00-01"]
+summary = "RoleInvocation (prompt, workspace, tool policy, output schema, budget, timeout) and RoleResult (validated output, transcript, usage, stop reason)."
+acceptance = ["Trait is backend-neutral (no CLI flags leak)", "Types documented with examples", "Compiles with no runtime backend present"]
+
+[[issue]]
+id = "E09-02"
+title = "Claude Code headless backend"
+deps = ["E09-01", "E04-01"]
+size = "L"
+summary = "Spawn the CLI per invocation with stream-json, Bedrock auth, generated allow/deny tool lists and hooks, permission mode, and timeouts; parse the event stream."
+acceptance = ["Runs inside the sandbox", "Process tree killed on timeout", "Parser tolerant of unknown event types"]
+
+[[issue]]
+id = "E09-03"
+title = "Structured output enforcement with bounded repair"
+deps = ["E09-02"]
+summary = "Validate outputs against the role's JSON Schema; allow a capped repair reprompt; otherwise fail."
+acceptance = ["Never accepts schema-invalid output", "Repair attempts counted and reported", "Fuzzed model outputs do not panic the parser"]
+
+[[issue]]
+id = "E09-04"
+title = "Role tool policies and generated hooks"
+deps = ["E09-02", "E07-04"]
+summary = "Per-role allowed tools and path allowlists compiled into the backend's permission and PreToolUse hook configuration; violations denied and logged."
+acceptance = ["Architect cannot write outside the spec path (tested)", "Builder cannot write source (tested)", "Denials appear in the run's event log"]
+
+[[issue]]
+id = "E09-05"
+title = "FakeRuntime and record/replay runtime"
+deps = ["E09-01"]
+summary = "Deterministic orchestration tests using scripted responses and recorded cassettes."
+acceptance = ["Cassettes keyed by prompt hash", "Replay mismatch is a loud failure", "Used by every role's tests"]
+
+[[issue]]
+id = "E09-06"
+title = "Transcript capture and redaction"
+size = "S"
+deps = ["E09-02"]
+summary = "Persist full transcripts in the run store with secret redaction and links from evidence."
+acceptance = ["Redaction tested on canary secrets", "Retention policy enforced", "Transcripts content-addressed"]
+
+[[issue]]
+id = "E09-07"
+title = "Bedrock auth, region, and throttling backoff"
+deps = ["E09-02"]
+lang = ["rust", "aws"]
+summary = "Profile/SSO on laptops and OIDC role in CI, region and inference-profile config, and exponential backoff with jitter on throttling."
+acceptance = ["val doctor verifies model access", "Throttle storm test does not fail runs, only slows them", "No long-lived keys required"]
+
+[[issue]]
+id = "E09-08"
+title = "Runtime conformance suite"
+deps = ["E09-05"]
+summary = "Backend-agnostic tests (schema adherence, tool-policy enforcement, timeout, budget stop) that any backend must pass before it can serve a role."
+acceptance = ["Headless backend passes", "Suite is reusable as a library by E38", "Failures name the violated contract"]
+
+[[issue]]
+id = "E09-09"
+title = "Claude Code version pinning and drift canary"
+size = "S"
+deps = ["E09-02"]
+summary = "Pin the CLI version, record it in evidence, and run a canary suite on upgrade."
+acceptance = ["Unpinned versions refused in CI mode", "Upgrade PRs run the canary and the eval corpus", "Version recorded per run"]
+
+[[issue]]
+id = "E09-10"
+title = "Deterministic context packing"
+deps = ["E03-11", "E09-01"]
+summary = "Assemble role context from the index (relevant symbols, existing tests, conventions) within token budgets, citing sources."
+acceptance = ["Same inputs produce byte-identical context", "Budget never exceeded", "Dropped items reported"]
+
+# ===========================================================================
+[[epic]]
+id = "E10"
+title = "Prompt & Role System"
+theme = "agents"
+goal = "Versioned, testable prompts that encode role charters and the anti-shortcut rubric."
+milestone = "M3"
+lang = ["rust", "python", "typescript"]
+
+[[issue]]
+id = "E10-01"
+title = "Prompt template engine with versioning"
+deps = ["E00-03"]
+summary = "Templates embedded in the binary with typed variables, Markdown-delimited sections, and a content hash recorded per run."
+acceptance = ["Missing variable is a compile- or load-time error", "Prompt hash in evidence", "Templates diffable in review"]
+
+[[issue]]
+id = "E10-02"
+title = "Role charters: Assessor, Architect, Builder, Reviewer"
+deps = ["E10-01"]
+summary = "Purpose, inputs, outputs, forbidden actions, escalation rules for each role, as docs and as prompts."
+acceptance = ["Charter and prompt kept in sync by a test", "Forbidden actions mirror tool policy", "Escalation criteria explicit"]
+
+[[issue]]
+id = "E10-03"
+title = "Anti-shortcut rubric library"
+deps = ["E10-02"]
+summary = "Machine-readable definitions of each shortcut with good/bad examples, used by Builder and Reviewer prompts."
+acceptance = ["Derived from the catalog (single source)", "Examples are real tests that pass/fail the linter", "Updated when the catalog changes"]
+
+[[issue]]
+id = "E10-04"
+title = "Python prompt pack"
+deps = ["E10-01"]
+lang = ["python"]
+summary = "pytest, parametrization, fixtures, Hypothesis, autospec, async conventions."
+acceptance = ["Exemplars lint clean under E07-03", "Covers Poetry and uv layouts", "Reviewed by a Python maintainer"]
+
+[[issue]]
+id = "E10-05"
+title = "TypeScript prompt pack"
+deps = ["E10-01"]
+lang = ["typescript"]
+summary = "Vitest/Jest idioms, test.each, typed mocks, fast-check, msw, ESM/CJS pitfalls."
+acceptance = ["Exemplars lint clean under E07-03", "Both runners covered", "Reviewed by a TS maintainer"]
+
+[[issue]]
+id = "E10-06"
+title = "Local exemplar retrieval"
+deps = ["E03-06", "E10-01"]
+summary = "Retrieve the repo's own best tests (by mutation score and review history) as style exemplars."
+acceptance = ["Only passing, strong tests selected", "Exemplars cited in the prompt", "No cross-repo leakage unless allowed"]
+
+[[issue]]
+id = "E10-07"
+title = "Prompt regression testing"
+milestone = "M4"
+deps = ["E09-05", "E15-05"]
+summary = "Prompt changes run through replay tests and the eval corpus; regressions beyond tolerance block merge."
+acceptance = ["CI job wired", "Variance handled with repeats", "Result posted to the PR"]
+
+[[issue]]
+id = "E10-08"
+title = "Prompt-injection hardening"
+size = "S"
+deps = ["E10-01", "E16-02"]
+summary = "Treat repository text as data: delimiters, instruction hierarchy, canary strings, and refusal to follow embedded instructions."
+acceptance = ["Honeypot injections do not alter behavior", "Canary leak tests", "Documented residual risk"]
+
+[[issue]]
+id = "E10-09"
+title = "Generated Claude Code skills and hooks bundle"
+deps = ["E09-04"]
+summary = "Per-role .claude/ configuration materialized into the workspace at run time and removed afterwards."
+acceptance = ["Bundle content hashed in evidence", "No persistent changes to the target repo", "Works inside the container"]
+
+# ===========================================================================
+[[epic]]
+id = "E11"
+title = "Architect: Test Specification"
+theme = "agents"
+goal = "Specs that are concrete, validated, and reviewable before any test code exists."
+milestone = "M3"
+lang = ["rust"]
+
+[[issue]]
+id = "E11-01"
+title = "TestSpec schema"
+deps = ["E01-01", "E06-03"]
+summary = "Scenarios, concrete parameters, boundary values, mock boundaries with justification, data states, layer, covered obligations, and rationale."
+acceptance = ["Mock boundaries must name what is real and what is faked", "Obligation ids referenced must exist", "Example specs for py and ts"]
+
+[[issue]]
+id = "E11-02"
+title = "Architect role implementation"
+deps = ["E11-01", "E09-03", "E10-02"]
+summary = "Gap to spec with no code writing; output validated by schema and by E11-03."
+acceptance = ["Tool policy blocks any non-spec writes", "Replay tests for 5 fixture gaps", "Invalid specs rejected, not repaired silently"]
+
+[[issue]]
+id = "E11-03"
+title = "Deterministic spec validator"
+deps = ["E11-01", "E06-03"]
+summary = "Every uncovered obligation maps to a scenario or an explicit waiver; boundaries derive from types and constraints; placeholders rejected."
+acceptance = ["Hand-written bad specs rejected", "Waivers require reasons", "Coverage of obligations reported"]
+
+[[issue]]
+id = "E11-04"
+title = "Spec rendering and review UX"
+size = "S"
+deps = ["E11-01"]
+summary = "Render specs to Markdown for PR/issue comments and files, concise enough to review in minutes."
+acceptance = ["Diff-friendly stable format", "Checklist of decisions for the reviewer", "Links back to gap evidence"]
+
+[[issue]]
+id = "E11-05"
+title = "Spec feedback loop"
+deps = ["E11-04", "E18-06"]
+summary = "Reviewer comments feed a revision pass; accepted specs are frozen and hashed."
+acceptance = ["Revision history kept", "Frozen spec is what the Builder receives", "Changes after freeze require a new version"]
+
+[[issue]]
+id = "E11-06"
+title = "Test-layer selection logic"
+deps = ["E11-02", "E03-06"]
+summary = "Choose unit, property, integration, or contract per obligation based on I/O and dependencies, with justification."
+acceptance = ["Pure functions prefer unit/property", "I/O boundaries route to integration when a pack is enabled", "Choice explained in the spec"]
+
+[[issue]]
+id = "E11-07"
+title = "Characterization-test specs for legacy code"
+deps = ["E11-02"]
+summary = "Specs that pin current behavior (approval/golden style) with explicit markers and a human-review flag for any behavior that looks wrong."
+acceptance = ["Pinned behaviors tagged and listed", "Suspicious behavior becomes a finding, not a silent pin", "Marker convention documented"]
+
+# ===========================================================================
+[[epic]]
+id = "E12"
+title = "Builder: Test Implementation"
+theme = "agents"
+goal = "Tests that implement the frozen spec with strict types and real assertions."
+milestone = "M4"
+lang = ["rust", "python", "typescript"]
+
+[[issue]]
+id = "E12-01"
+title = "Builder role implementation"
+deps = ["E11-03", "E09-04", "E10-03"]
+summary = "Frozen spec to test files under the write allowlist, honoring repo conventions and strict typing."
+acceptance = ["Cannot write outside test paths (tested)", "Output linted before verification", "Replay tests on fixture specs"]
+
+[[issue]]
+id = "E12-02"
+title = "Build-verify loop controller"
+deps = ["E12-01", "E07-11", "E01-07"]
+summary = "Run the gauntlet, parse failures, feed back targeted fixes, bounded attempts, and escalate rather than relax."
+acceptance = ["Never edits source or thresholds to pass", "Stall detection ends the loop", "Attempt history in evidence"]
+
+[[issue]]
+id = "E12-03"
+title = "Failure triage: test bug, source bug, or environment"
+deps = ["E12-02"]
+summary = "Classify failures; suspected source bugs become findings and never get 'fixed' by weakening tests."
+acceptance = ["Honeypot with buggy source yields a finding, not a pinned bug", "Env failures retried with backoff then escalated", "Findings routed to humans"]
+
+[[issue]]
+id = "E12-04"
+title = "Property-based test generation"
+deps = ["E12-01", "E23-03", "E24-03"]
+summary = "Derive invariants from the spec for qualifying utilities and generate Hypothesis/fast-check tests with meaningful properties."
+acceptance = ["Trivial invariants rejected by lint", "Seeds recorded for replay", "Applies only where the spec asks"]
+
+[[issue]]
+id = "E12-05"
+title = "Fixture and factory reuse"
+size = "S"
+deps = ["E12-01", "E03-06"]
+summary = "Detect and reuse existing fixtures and factories; avoid duplicating helpers."
+acceptance = ["Duplicate helper creation flagged", "Reuse rate measured", "New shared fixtures proposed rather than copied"]
+
+[[issue]]
+id = "E12-06"
+title = "Parametrized branch matrices"
+size = "S"
+deps = ["E12-01"]
+summary = "pytest.mark.parametrize and test.each with explicit ids and boundary rows from the spec."
+acceptance = ["Each row traceable to an obligation", "Readable ids", "No redundant rows"]
+
+[[issue]]
+id = "E12-07"
+title = "Anti-overfit controls"
+deps = ["E08-08"]
+summary = "Builder sees behavior-level survivor feedback only; held-out mutant scoring detects overfitting."
+acceptance = ["Overfit metric reported per run", "Builder never receives mutant patches", "Policy tested with a seeded overfitting attempt"]
+
+[[issue]]
+id = "E12-08"
+title = "Commit hygiene"
+size = "S"
+deps = ["E12-01"]
+summary = "Atomic, well-described commits; no unrelated formatting; consistent attribution trailers."
+acceptance = ["Formatting-only hunks rejected by diff policy", "Commit messages reference gap and spec ids", "Trailers per policy"]
+
+# ===========================================================================
+[[epic]]
+id = "E13"
+title = "Adversarial Reviewer & Evidence"
+theme = "agents"
+goal = "Independent judgment of test quality plus machine-generated, signed proof attached to every PR."
+milestone = "M4"
+lang = ["rust"]
+
+[[issue]]
+id = "E13-01"
+title = "Reviewer role"
+deps = ["E10-03", "E09-03"]
+summary = "Fresh-context, rubric-driven critique of the final diff and spec: weak assertions, tautologies, over-mocking, missing negative cases; structured findings with severity."
+acceptance = ["Never sees Builder reasoning", "Read-only tool policy", "Findings cite lines"]
+
+[[issue]]
+id = "E13-02"
+title = "Reviewer isolation guarantees"
+size = "S"
+deps = ["E13-01", "E20-02"]
+summary = "Separate session and configurable different model; verify no shared context between Builder and Reviewer."
+acceptance = ["Isolation asserted in evidence", "Model-diversity setting honored", "Test proves no transcript leakage"]
+
+[[issue]]
+id = "E13-03"
+title = "Reviewer and gates reconciliation"
+deps = ["E13-01", "E12-02"]
+summary = "High-severity findings block; others annotate; Builder must address or justify; bounded rounds."
+acceptance = ["Justifications visible to humans", "Round limit enforced", "Disagreements escalate"]
+
+[[issue]]
+id = "E13-04"
+title = "Evidence bundle schema and generator"
+deps = ["E07-11", "E01-04"]
+summary = "Rust-generated record of gate results, coverage and mutation figures, flake runs, diff policy, cost, prompt hashes, model ids, tool versions, and commit SHAs."
+acceptance = ["Agents cannot write to the bundle", "Bundle reproducible from the run store", "Schema versioned"]
+
+[[issue]]
+id = "E13-05"
+title = "Evidence signing and verification"
+deps = ["E13-04"]
+summary = "Sign bundles (Sigstore keyless in GHA, local key otherwise); `val verify-evidence` and a PR check that refuses unsigned or tampered bundles."
+acceptance = ["Tampering detected in test", "Key custody documented", "Works offline for verification"]
+
+[[issue]]
+id = "E13-06"
+title = "PR body renderer from evidence"
+size = "S"
+deps = ["E13-04"]
+summary = "Concise PR description rendered only from the evidence bundle, with a what-to-review checklist."
+acceptance = ["No free-text numbers from agents", "Under one screen for typical PRs", "Mirrors repo PR template headings"]
+
+[[issue]]
+id = "E13-07"
+title = "Reviewer calibration"
+deps = ["E15-05"]
+summary = "Measure reviewer precision and recall on known-bad and known-good tests; alert on drift."
+acceptance = ["Baseline recorded", "Drift alert wired", "Calibration set versioned"]

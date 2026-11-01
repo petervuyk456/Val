@@ -1,0 +1,307 @@
+# ===========================================================================
+[[epic]]
+id = "E03"
+title = "Repo Intelligence (Indexer)"
+theme = "assess"
+goal = "Understand any Python/TypeScript repo - layout, tooling, symbols, branches, history - without running an LLM."
+milestone = "M1"
+lang = ["rust", "python", "typescript"]
+
+[[issue]]
+id = "E03-01"
+title = "Repo detector: languages, package managers, monorepo layout"
+deps = ["E01-01"]
+summary = "Detect Python (Poetry, uv, pip), TypeScript (npm, pnpm workspaces), mixed repos, and produce a RepoProfile."
+acceptance = ["Fixtures for each layout (poetry, uv, requirements, npm, pnpm workspaces, mixed)", "Unknown layouts reported, not guessed", "Deterministic output"]
+
+[[issue]]
+id = "E03-02"
+title = "Test framework and command discovery"
+deps = ["E03-01", "E04-02"]
+summary = "Find pytest/vitest/jest configuration, markers/projects, how unit and integration tests run, and existing coverage settings; confirm by a dry run."
+acceptance = ["Discovered commands verified by execution", "Ambiguity surfaces as a question for val.toml", "Handles root-vs-package runners in monorepos"]
+
+[[issue]]
+id = "E03-03"
+title = "tree-sitter symbol extraction: Python"
+deps = ["E03-01"]
+summary = "Functions, classes, imports/exports, decorators, async, type hints, and spans via tree-sitter-python."
+acceptance = ["Golden-file tests over a fixture corpus", "Syntax errors tolerated with partial results", "Spans map exactly to source lines"]
+
+[[issue]]
+id = "E03-04"
+title = "tree-sitter symbol extraction: TypeScript/TSX"
+deps = ["E03-01"]
+summary = "Exports, classes, functions, types/interfaces, async, decorators, and path aliases via tree-sitter-typescript."
+acceptance = ["Golden-file tests incl. TSX and path aliases", "Re-exports resolved", "Declaration-only files handled"]
+
+[[issue]]
+id = "E03-05"
+title = "Branch-obligation extraction"
+deps = ["E03-03", "E03-04"]
+summary = "Enumerate every branch point, raise/throw site, exception handler, early return, and boundary comparison per function - the substrate for 'what must be tested'."
+acceptance = ["Obligation ids stable across formatting-only changes", "Comprehensions, ternaries, short-circuits covered", "Property tests: obligations <-> coverage branch counts reconcile within tolerance"]
+
+[[issue]]
+id = "E03-06"
+title = "Intra-repo import/call graph and test-to-source mapping"
+deps = ["E03-03", "E03-04"]
+summary = "Build the import graph and map tests to sources via naming, imports, and (later) coverage."
+acceptance = ["Mapping precision measured on fixture repos", "Unmapped tests/sources reported", "Cycles tolerated"]
+
+[[issue]]
+id = "E03-07"
+title = "Git-history signals"
+deps = ["E03-01"]
+summary = "Per-file churn, authorship concentration, bug-fix commit density (conventional commits and heuristics), and co-change."
+acceptance = ["Shallow clones degrade gracefully", "Bot commits excluded", "Heuristics documented and tunable"]
+
+[[issue]]
+id = "E03-08"
+title = "Local complexity metrics (Sonar-independent)"
+deps = ["E03-03", "E03-04"]
+size = "S"
+summary = "Cyclomatic and cognitive complexity per function so ranking works without SonarQube."
+acceptance = ["Matches reference tools on the fixture corpus within tolerance", "Documented definitions", "Used as fallback in E17-11"]
+
+[[issue]]
+id = "E03-09"
+title = "Incremental index cache keyed by content hash"
+deps = ["E03-05"]
+summary = "Re-index only changed files; cache survives branch switches."
+acceptance = ["Cold vs warm benchmark recorded", "Cache corruption detected and rebuilt", "No stale reads after rebase"]
+
+[[issue]]
+id = "E03-10"
+title = "Workspace package graph (pnpm, npm workspaces, Poetry path deps)"
+deps = ["E03-01"]
+summary = "Intra-repo package dependency graph for affected-package analysis."
+acceptance = ["pnpm-workspace.yaml and package.json workspaces parsed", "Poetry path/group deps parsed", "Cycle report"]
+
+[[issue]]
+id = "E03-11"
+title = "val index command and index schema"
+deps = ["E03-09", "E03-06", "E03-07"]
+size = "S"
+summary = "CLI command emitting the index as versioned JSON with a human summary."
+acceptance = ["--json output validates against schema", "Runs on a 100k-LOC repo within a documented time", "Respects .gitignore"]
+
+# ===========================================================================
+[[epic]]
+id = "E04"
+title = "Sandbox & Execution"
+theme = "assess"
+goal = "Run untrusted test code safely and reproducibly, locally and in CI, with declared artifact extraction."
+milestone = "M1"
+lang = ["rust"]
+
+[[issue]]
+id = "E04-01"
+title = "tokio process runner: timeouts, process groups, streaming"
+deps = ["E00-03"]
+summary = "Spawn commands with soft/hard timeouts, kill whole process groups, stream stdout/stderr with ring-buffer truncation, and capture exit status or signal."
+acceptance = ["No zombie processes in stress test", "Output cap enforced", "Cancellation propagates"]
+
+[[issue]]
+id = "E04-02"
+title = "Local executor with git worktree isolation and env scrubbing"
+deps = ["E04-01"]
+summary = "Run commands in a throwaway worktree with a scrubbed environment allowlist."
+acceptance = ["Worktrees cleaned on success, failure, and crash", "Ambient credentials not visible", "Dirty main checkout never touched"]
+
+[[issue]]
+id = "E04-03"
+title = "Container executor (Docker/Podman)"
+milestone = "M2"
+deps = ["E04-01"]
+summary = "Read-only source mount, writable overlay, CPU/memory/pids limits, non-root user, no network by default."
+acceptance = ["Resource-limit tests (OOM, fork bomb, disk fill) contained", "Works on laptop and GHA runners", "Podman rootless supported or explicitly documented as not"]
+
+[[issue]]
+id = "E04-04"
+title = "Network egress allowlist proxy"
+milestone = "M4"
+deps = ["E04-03"]
+summary = "Default-deny egress with an allowlisting proxy for package mirrors, the Bedrock endpoint, and LocalStack."
+acceptance = ["Direct-connect attempts fail", "DNS exfiltration blocked or logged", "Allowlist is per-run and auditable"]
+
+[[issue]]
+id = "E04-05"
+title = "Toolchain base images and dependency caches"
+milestone = "M2"
+deps = ["E04-03"]
+summary = "Pinned-digest images for supported Python and Node versions with poetry/uv/pnpm/npm, plus cache volumes."
+acceptance = ["Images rebuilt on a schedule with vulnerability scan", "Cold start under a documented bound", "Cache poisoning considered in threat model"]
+
+[[issue]]
+id = "E04-06"
+title = "Secrets hygiene in sandbox and logs"
+milestone = "M2"
+deps = ["E04-02"]
+size = "S"
+summary = "Env allowlist, no credential mounts, and a log scrubber for known secret shapes."
+acceptance = ["Canary secrets never appear in artifacts", "Scrubber unit-tested on real token formats", "Failure to scrub is fatal in CI mode"]
+
+[[issue]]
+id = "E04-07"
+title = "Declared artifact extraction contract"
+deps = ["E04-02"]
+size = "S"
+summary = "Only declared outputs (coverage, junit, mutation) are copied out, with size caps and path-traversal protection."
+acceptance = ["Symlink and traversal attacks rejected", "Oversize artifacts truncated with a flag", "Missing declared artifact is an explicit error"]
+
+[[issue]]
+id = "E04-08"
+title = "Parallel execution scheduler with resource budgeting"
+milestone = "M2"
+deps = ["E04-03"]
+summary = "Fan out test and mutation shards within CPU/memory budgets."
+acceptance = ["Throughput scales to core count", "No oversubscription under load test", "Fair across concurrent runs"]
+
+[[issue]]
+id = "E04-09"
+title = "Hermetic dependency installs and added-dependency detection"
+milestone = "M4"
+deps = ["E04-05"]
+summary = "Lockfile-respecting installs; any dependency added by a diff is detected and routed to policy."
+acceptance = ["New dependency flagged in verdict", "Offline cache works", "Lockfile drift is a hard failure"]
+
+# ===========================================================================
+[[epic]]
+id = "E05"
+title = "Reports & Evidence Parsing"
+theme = "assess"
+goal = "Turn raw tool output into a trustworthy, normalized model that agents cannot influence."
+milestone = "M1"
+lang = ["rust"]
+
+[[issue]]
+id = "E05-01"
+title = "Cobertura XML parser with branch data"
+deps = ["E01-01"]
+summary = "Parse pytest-cov/coverage.py Cobertura output including condition coverage."
+acceptance = ["Fixtures from real runs", "Branch counts exact", "Malformed XML yields a precise error"]
+
+[[issue]]
+id = "E05-02"
+title = "LCOV parser including BRDA"
+deps = ["E01-01"]
+summary = "Parse LCOV from vitest/jest (v8/istanbul) including branch records."
+acceptance = ["Fixtures from vitest and jest", "Path normalization for monorepos", "Function records supported"]
+
+[[issue]]
+id = "E05-03"
+title = "Normalized cross-language coverage model"
+deps = ["E05-01", "E05-02"]
+summary = "One model for file/line/branch coverage with stable path normalization and per-test attribution where available."
+acceptance = ["Same source in py/ts yields comparable structures", "Round-trip tests", "Rejects reports whose paths do not exist in the tree"]
+
+[[issue]]
+id = "E05-04"
+title = "Diff coverage"
+milestone = "M2"
+deps = ["E05-03"]
+summary = "Map changed lines from git diff to coverage and report uncovered new branches."
+acceptance = ["Renames and moved hunks handled", "Reports per-file and aggregate", "Matches diff-cover on fixtures"]
+
+[[issue]]
+id = "E05-05"
+title = "JUnit XML parser"
+deps = ["E01-01"]
+size = "S"
+summary = "Pass/fail/skip/xfail, durations, flaky reruns, and system-out capture."
+acceptance = ["pytest, vitest, jest dialects", "Skips and xfails distinguished", "Durations preserved"]
+
+[[issue]]
+id = "E05-06"
+title = "Mutation report parsers and normalized MutantResult"
+milestone = "M2"
+deps = ["E01-01"]
+summary = "Stryker JSON and mutmut results into one MutantResult model with status, operator, location, and killing tests."
+acceptance = ["Timeouts and no-coverage statuses distinguished", "Operators mapped to a shared taxonomy", "Fixtures from real runs"]
+
+[[issue]]
+id = "E05-07"
+title = "Fallback parsers for raw pytest/vitest/jest output"
+milestone = "M4"
+deps = ["E05-05"]
+size = "S"
+summary = "Extract structured failures from tracebacks and runner output when JUnit is unavailable, for the fix loop."
+acceptance = ["Assertion diffs preserved", "Collection errors identified", "Truncation-safe"]
+
+[[issue]]
+id = "E05-08"
+title = "Report integrity checks"
+milestone = "M2"
+deps = ["E05-03", "E04-07"]
+summary = "Reports must correspond to the executed tree, command, and time; fabricated or stale reports are rejected."
+acceptance = ["Hand-forged report rejected in a test", "Report tied to commit and command hash", "Empty or trivial reports flagged"]
+
+# ===========================================================================
+[[epic]]
+id = "E06"
+title = "Assessment & Gap Ranking"
+theme = "assess"
+goal = "Tell a team where testing is genuinely weakest, with evidence for every claim."
+milestone = "M1"
+lang = ["rust"]
+
+[[issue]]
+id = "E06-01"
+title = "Gap model and risk-scoring formula"
+deps = ["E03-07", "E03-08"]
+summary = "risk = f(uncovered obligations, complexity, churn, bug-fix density, criticality tier, blast radius); documented, tunable, and explainable."
+acceptance = ["Weights configurable in val.toml", "Score decomposition shown per gap", "Sensitivity analysis on fixtures"]
+
+[[issue]]
+id = "E06-02"
+title = "Baseline coverage run"
+deps = ["E03-02", "E04-02", "E05-03"]
+summary = "Execute the repo's own test command with coverage under the sandbox and produce a normalized baseline."
+acceptance = ["Baseline reproducible across two runs within tolerance", "Failing baseline reported distinctly from low coverage", "Works for pnpm monorepos per package"]
+
+[[issue]]
+id = "E06-03"
+title = "Obligations versus coverage: uncovered branch obligations"
+deps = ["E03-05", "E06-02"]
+summary = "Join branch obligations with coverage to list which specific branches, error paths, and boundaries lack any test."
+acceptance = ["Per-obligation covered/uncovered with the covering tests", "Precision measured on seeded fixtures", "Unmappable obligations listed explicitly"]
+
+[[issue]]
+id = "E06-04"
+title = "Ranked gap report and val assess"
+deps = ["E06-01", "E06-03"]
+summary = "JSON and Markdown gap report with ranking, and the `val assess` command."
+acceptance = ["Deterministic ordering", "Top-N filter and per-package grouping", "Readable by a non-expert in one screen"]
+
+[[issue]]
+id = "E06-05"
+title = "Evidence citation for every gap"
+size = "S"
+deps = ["E06-04"]
+summary = "Each gap cites file/line spans, the commits, and coverage facts that justify its rank; no unevidenced claims."
+acceptance = ["Report fails validation if a gap lacks evidence", "Links resolve to commit/file/line", "Explainable via `val explain`"]
+
+[[issue]]
+id = "E06-06"
+title = "Weak-existing-test audit"
+milestone = "M2"
+deps = ["E07-03", "E06-04"]
+summary = "Apply the anti-pattern linter to existing tests to find shallow coverage: no-assert tests, tautologies, over-mocking, skipped tests - the 'shallow' half of the legacy problem."
+acceptance = ["Per-file weak-test score", "Coverage discounted by test weakness in ranking (configurable)", "Findings link to examples"]
+
+[[issue]]
+id = "E06-07"
+title = "Semantic gap pass (LLM-assisted)"
+milestone = "M3"
+deps = ["E06-04", "E09-03", "E10-02"]
+summary = "Assessor role finds undocumented edge cases, implicit contracts, unhandled errors, and complex conditionals the numeric pass cannot see; findings carry evidence or are dropped."
+acceptance = ["Findings validated against the index (spans exist)", "Hallucinated spans rejected", "Precision measured on the eval corpus"]
+
+[[issue]]
+id = "E06-08"
+title = "Stable gap identities and lifecycle"
+size = "S"
+deps = ["E06-04"]
+summary = "Gaps keep ids across runs; track opened, narrowed, and closed gaps over time."
+acceptance = ["Formatting-only changes do not churn ids", "History queryable", "Closed gaps cite the closing commit"]

@@ -1,0 +1,212 @@
+# Issue ids are E<epic>-<nn>. Defaults (milestone, lang, size, type) come from the
+# epic; an issue overrides only what differs. status defaults to "todo".
+
+# ===========================================================================
+[[epic]]
+id = "E00"
+title = "Foundation & Governance"
+theme = "platform"
+goal = "A governed, releasable Rust workspace that holds itself to the quality bar it will enforce on others."
+milestone = "M0"
+lang = ["rust"]
+
+[[issue]]
+id = "E00-01"
+title = "ADR-001: AgentRuntime trait, headless backend first"
+type = "adr"
+size = "S"
+deps = []
+summary = "Record the decision to abstract the agent loop behind a trait, ship the Claude Code headless backend first, and defer the native Bedrock backend."
+acceptance = ["ADR merged with context, options, consequences", "Trade-off table from the interview preserved", "Revisit trigger defined (what evidence would flip the decision)"]
+
+[[issue]]
+id = "E00-02"
+title = "ADR-002: Workspace layout and crate boundaries"
+type = "adr"
+size = "S"
+deps = []
+summary = "Fix the val-* crate list and the downward-only dependency rule, including that val-gates may not depend on val-runtime."
+acceptance = ["Crate list and responsibilities documented", "Forbidden dependency edges listed", "Naming conventions for crates, binaries, and features"]
+
+[[issue]]
+id = "E00-03"
+title = "Scaffold Cargo workspace and toolchain pins"
+deps = ["E00-02"]
+summary = "Create the workspace with empty crates, rust-toolchain.toml, MSRV policy, shared lints (deny unsafe, clippy pedantic subset), and thiserror/anyhow conventions."
+acceptance = ["cargo build/test/fmt/clippy green on empty crates", "Workspace-level lints and edition set once", "Error-handling convention documented in CONTRIBUTING"]
+
+[[issue]]
+id = "E00-04"
+title = "CI for Val: fmt, clippy, nextest, deny, audit, MSRV, banned-edge check"
+deps = ["E00-03"]
+lang = ["gha", "rust"]
+summary = "GitHub Actions workflow for Val itself with pinned action SHAs and least-privilege permissions, including a cargo-deny rule that forbids val-gates depending on val-runtime."
+acceptance = ["PRs blocked on all checks", "Forbidden edge fails CI in a demonstration PR", "Cache keeps median CI under 8 minutes"]
+
+[[issue]]
+id = "E00-05"
+title = "Dogfood the bar: branch coverage and cargo-mutants ratchet on core crates"
+deps = ["E00-04"]
+summary = "Apply Val's own quality standard to Val: cargo-llvm-cov branch coverage and cargo-mutants on val-core and val-gates, with a ratchet in CI."
+acceptance = ["Thresholds recorded in-repo and enforced", "Mutation survivors listed in the CI summary", "Ratchet file updated only by explicit PR"]
+
+[[issue]]
+id = "E00-06"
+title = "Release pipeline: signed multi-platform binaries, checksums, SBOM, provenance"
+deps = ["E00-04"]
+lang = ["gha", "rust"]
+summary = "Tagged releases publish linux/macos x86_64+arm64 binaries to GitHub Releases with checksums, SBOM, and build provenance attestations."
+acceptance = ["Release from a tag is reproducible", "Install via mise github backend works", "Attestation verifiable with gh attestation verify"]
+
+[[issue]]
+id = "E00-07"
+title = "CLAUDE.md and contributor guide for building Val with Claude Code"
+deps = ["E00-03"]
+type = "docs"
+size = "S"
+summary = "How to pick a roadmap issue, definition of done, testing expectations, how to run the roadmap viewer, and rules for agent contributors (no skipped tests, no lint suppression without a reason)."
+acceptance = ["CLAUDE.md at repo root", "Definition of done mirrors the gate catalog where applicable", "Links to roadmap and ADR index"]
+
+[[issue]]
+id = "E00-08"
+title = "ADR-003: Execution topology and trust boundaries"
+type = "adr"
+size = "S"
+deps = []
+summary = "Decide how laptop, per-repo reusable workflow, and central fleet workflow share one binary and what each trusts."
+acceptance = ["Trust-boundary diagram", "Which credentials exist in which environment", "Fork-PR handling rule"]
+
+[[issue]]
+id = "E00-09"
+title = "ADR-004: Determinism policy for LLM-involving steps"
+type = "adr"
+size = "S"
+deps = ["E00-01"]
+summary = "Define what is recorded (prompts, hashes, model ids, seeds, tool versions) so any run can be explained and, where possible, replayed."
+acceptance = ["Required provenance fields listed", "Replay semantics and limits stated", "Retention policy for transcripts"]
+
+# ===========================================================================
+[[epic]]
+id = "E01"
+title = "Domain Model & Run Engine"
+theme = "platform"
+goal = "Typed, versioned, serializable models and a resumable state machine that make every run explainable."
+milestone = "M0"
+lang = ["rust"]
+
+[[issue]]
+id = "E01-01"
+title = "Core types with serde and generated JSON Schema"
+deps = ["E00-03"]
+summary = "RepoRef, Workspace, Language, Gap, TestGoal, TestSpec, DiffStatus, GateResult, Verdict, EvidenceBundle, with schemars-generated schemas committed."
+acceptance = ["Round-trip property tests for every type", "Schemas committed and diff-checked in CI", "No stringly-typed enums"]
+
+[[issue]]
+id = "E01-02"
+title = "Artifact schema versioning and compatibility policy"
+deps = ["E01-01"]
+size = "S"
+summary = "Every persisted artifact carries schema_version; define migration and backward-compat rules and golden-file tests."
+acceptance = ["Golden files for each artifact", "Old-version read test", "Policy documented"]
+
+[[issue]]
+id = "E01-03"
+title = "Run state machine with explicit transition table"
+deps = ["E01-01"]
+summary = "Typed states (Observe, Assess, Specify, Build, Verify, Review, Done, Rejected, Escalated) with an exhaustive transition table and property tests for invalid transitions."
+acceptance = ["Illegal transitions unrepresentable or rejected", "Every state has a bounded exit", "Transition table is rendered into docs automatically"]
+
+[[issue]]
+id = "E01-04"
+title = "Run store: directory layout, event log, content-addressed artifacts"
+deps = ["E01-01"]
+summary = "Per-run directory with run id, append-only events.jsonl, transcripts, and content-addressed artifacts."
+acceptance = ["Concurrent runs do not collide", "Events are append-only and ordered", "Artifact hash verified on read"]
+
+[[issue]]
+id = "E01-05"
+title = "Resumability and idempotency"
+deps = ["E01-03", "E01-04"]
+summary = "Crash-safe checkpoints so a run can resume; external side effects (branch, PR, comment) are idempotent by key."
+acceptance = ["Kill -9 mid-run then resume reaches the same result", "No duplicate PRs in a chaos test", "Resume refuses if the repo head changed incompatibly"]
+
+[[issue]]
+id = "E01-06"
+title = "Error taxonomy and exit-code contract"
+deps = ["E00-03"]
+size = "S"
+summary = "thiserror types per crate, anyhow only at binary edges, machine-readable error codes, and a documented exit-code table for CI consumers."
+acceptance = ["Exit codes distinguish gate-fail, needs-human, infra-error, usage-error", "Errors serialize to JSON in --json mode", "Table published in docs"]
+
+[[issue]]
+id = "E01-07"
+title = "Bounded retries and escalation semantics"
+deps = ["E01-03"]
+size = "S"
+summary = "Max build-verify iterations, stall detection (no progress across attempts), and structured escalation reasons; exhaustion is a failure, never a success."
+acceptance = ["Stall detector unit-tested", "Escalation reasons enumerated", "Escalation rate surfaced as a metric"]
+
+# ===========================================================================
+[[epic]]
+id = "E02"
+title = "Config, Manifest & State"
+theme = "platform"
+goal = "Per-repo config, fleet manifest, layered precedence, and a pluggable state store with ratchets."
+milestone = "M1"
+lang = ["rust"]
+
+[[issue]]
+id = "E02-01"
+title = "val.toml schema v1 with validation and JSON Schema"
+deps = ["E01-01"]
+summary = "Conventions stance (adapt|standardize), commands, thresholds, risk tiers, path allowlists, sandbox, per-role models; excellent error messages with fix hints."
+acceptance = ["Unknown keys rejected with suggestions", "Schema published for editor completion", "Every field documented with a default"]
+
+[[issue]]
+id = "E02-02"
+title = "Config layering and precedence with --explain"
+deps = ["E02-01"]
+size = "S"
+summary = "defaults < org < manifest < repo < CLI < env, with `val config show --explain` attributing each value to its source."
+acceptance = ["Precedence table tested", "Explain output names the file and line", "Secrets never printed"]
+
+[[issue]]
+id = "E02-03"
+title = "Fleet manifest schema"
+deps = ["E02-01"]
+milestone = "M6"
+size = "S"
+summary = "Central manifest of repos with owners, risk tier, adoption stage, Sonar project keys, dependencies hints, and per-repo budget."
+acceptance = ["Schema validated", "CODEOWNERS-compatible owner format", "Sample manifest for 3 repos in docs"]
+
+[[issue]]
+id = "E02-04"
+title = "StateStore trait with local filesystem backend"
+deps = ["E01-04"]
+summary = "Abstract baselines, ratchets, and history behind a trait; local backend first, with atomic writes and file locking."
+acceptance = ["Conformance tests reusable by other backends", "Concurrent writers safe", "No global state"]
+
+[[issue]]
+id = "E02-05"
+title = "Ratchet model: floors that only rise"
+milestone = "M2"
+deps = ["E02-04", "E05-03"]
+summary = "Per-module floors for branch coverage and mutation score; update rules; exemptions require justification and expiry."
+acceptance = ["Ratchet never lowers without a waiver", "Expired waivers fail the check", "Floors stored as reviewable data"]
+
+[[issue]]
+id = "E02-06"
+title = "S3 + DynamoDB StateStore backend"
+milestone = "M7"
+lang = ["rust", "aws"]
+deps = ["E02-04", "E37-04"]
+summary = "Remote backend for baselines and history with optimistic concurrency and encryption."
+acceptance = ["Passes the shared conformance suite", "Conditional writes prevent lost updates", "Local fallback if AWS unreachable (read-only)"]
+
+[[issue]]
+id = "E02-07"
+title = "val init: generate a minimal val.toml from detection"
+deps = ["E02-01", "E03-02"]
+size = "S"
+summary = "Detect runners and commands, propose conservative thresholds, and write val.toml with comments; never overwrite existing files."
+acceptance = ["Dry-run shows the diff", "Result validates", "Idempotent"]

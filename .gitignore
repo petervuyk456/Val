@@ -1,0 +1,9 @@
+# generated roadmap viewer
+.roadmap-site/
+
+# python
+__pycache__/
+*.pyc
+
+# rust (workspace arrives in M0)
+target/

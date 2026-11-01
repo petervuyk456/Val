@@ -1,0 +1,211 @@
+# ===========================================================================
+[[epic]]
+id = "E14"
+title = "Policy & Autonomy"
+theme = "trust"
+goal = "Risk-tiered autonomy with explicit human gates, circuit breakers, and promotion earned by track record."
+milestone = "M5"
+lang = ["rust"]
+
+[[issue]]
+id = "E14-01"
+title = "Policy model: levels x change classes x risk tiers"
+deps = ["E02-01"]
+summary = "Autonomy levels (report-only, draft-PR, PR-ready, auto-merge-eligible) crossed with change classes (test-only, test+fixture, test-infra, source) and repo risk tiers."
+acceptance = ["Matrix documented and exhaustively tested", "Default is the most conservative cell", "Policy-as-code format reviewed by security"]
+
+[[issue]]
+id = "E14-02"
+title = "Policy engine with explain trace"
+deps = ["E14-01"]
+summary = "Evaluate any proposed action against policy and return a decision with a human-readable trace."
+acceptance = ["Every write path consults the engine (checked by test)", "Trace attached to evidence", "Property tests for monotonicity (more risk never grants more autonomy)"]
+
+[[issue]]
+id = "E14-03"
+title = "Human gates and review routing"
+deps = ["E14-02", "E18-03"]
+summary = "First-N PRs per repo, size caps, sensitive-path triggers (auth, payments, PII), and CODEOWNERS-aware reviewer requests."
+acceptance = ["Sensitive-path list configurable", "Reviewer routing verified against CODEOWNERS", "Gate reasons shown in the PR"]
+
+[[issue]]
+id = "E14-04"
+title = "Auto-merge for eligible classes"
+deps = ["E14-02", "E18-05", "E17-05"]
+summary = "Merge only when every gate, evidence signature, the Sonar gate, and CI are green, after a cool-off window, in branch-protection-compatible ways."
+acceptance = ["Never bypasses branch protection", "Cool-off window honored", "One-click disable per repo"]
+
+[[issue]]
+id = "E14-05"
+title = "Kill switch and circuit breakers"
+deps = ["E14-02", "E21-02"]
+summary = "Org, repo, and global pause plus auto-trip on revert, post-merge CI failure, flake spike, or cost spike."
+acceptance = ["Game-day drill documented and executed", "Trip reasons recorded", "Resume requires a human"]
+
+[[issue]]
+id = "E14-06"
+title = "Promotion and demotion rules"
+deps = ["E14-02", "E21-04"]
+summary = "Autonomy moves up on acceptance rate, mutation uplift, and zero escapes over N PRs; down on reverts or escapes; promotions need human approval."
+acceptance = ["Rules are data, not code", "Demotion is automatic", "History auditable"]
+
+[[issue]]
+id = "E14-07"
+title = "Append-only audit log"
+size = "S"
+deps = ["E14-02"]
+summary = "Every decision, denial, and override recorded in a tamper-evident log."
+acceptance = ["Hash-chained entries", "Export for compliance", "Queryable by run/repo/actor"]
+
+[[issue]]
+id = "E14-08"
+title = "Testability refactor proposals (source-touching path)"
+deps = ["E14-03"]
+summary = "When code is untestable without seams, propose a minimal refactor as a separate, human-review-only PR - never mixed with test changes."
+acceptance = ["Refactor PRs always draft and labeled", "Behavior-preservation evidence required (characterization tests first)", "Never auto-merge"]
+
+# ===========================================================================
+[[epic]]
+id = "E15"
+title = "Eval Harness & Seeded Defects"
+theme = "trust"
+goal = "Measure Val itself: if prompts, models, or gates change, we know whether tests got better or worse."
+milestone = "M3"
+lang = ["rust", "python", "typescript"]
+
+[[issue]]
+id = "E15-01"
+title = "Eval corpus design"
+type = "adr"
+size = "S"
+milestone = "M2"
+deps = ["E00-03"]
+summary = "Criteria for golden repos (py lib, py AWS service, ts lib, ts service, pnpm monorepo), realistic gap profiles, licensing, and size limits."
+acceptance = ["Selection rubric written", "Metrics definitions agreed", "Contamination risk addressed"]
+
+[[issue]]
+id = "E15-02"
+title = "Golden repos: Python"
+deps = ["E15-01"]
+summary = "Build or curate Python repos with realistic gaps, weak existing tests, and known-good reference suites."
+acceptance = ["Reference suite achieves target mutation score", "Gaps catalogued with ground truth", "Runs offline"]
+
+[[issue]]
+id = "E15-03"
+title = "Golden repos: TypeScript and pnpm monorepo"
+deps = ["E15-01"]
+summary = "Same for TypeScript including a pnpm workspace with shared library and consumers."
+acceptance = ["Reference suites pass", "Workspace dependencies exercised", "Runs offline"]
+
+[[issue]]
+id = "E15-04"
+title = "Defect-seeding framework"
+deps = ["E15-02", "E08-04"]
+summary = "Catalog of defect classes (boundary, off-by-one, swapped args, missing error path, idempotency, race) with ground truth hidden from agents."
+acceptance = ["Seeds are compile-valid and behavior-changing", "Ground truth stored outside agent-visible paths", "Seed sets versioned"]
+
+[[issue]]
+id = "E15-05"
+title = "val eval runner and scorecard"
+milestone = "M4"
+deps = ["E15-04", "E13-04"]
+summary = "Run the pipeline over the corpus; score defects caught, mutation, coverage, shortcut incidence, escalation rate, cost, wall time; trend over time."
+acceptance = ["Scorecard JSON and Markdown", "Multiple seeds with variance", "Comparable across Val versions"]
+
+[[issue]]
+id = "E15-06"
+title = "Shortcut honeypots"
+deps = ["E15-02"]
+summary = "Scenarios that tempt cheating - untestable code, a buggy current behavior, an impossible branch, an injected instruction - with the expected honest behavior (escalate or waive)."
+acceptance = ["Each honeypot maps to a catalog row", "Honest-behavior rate on the scorecard", "New shortcuts add honeypots"]
+
+[[issue]]
+id = "E15-07"
+title = "Eval CI gate for Val changes"
+milestone = "M4"
+deps = ["E15-05", "E19-02"]
+summary = "Prompts, models, gates, and runtime changes must not regress the scorecard beyond tolerance; nightly full run."
+acceptance = ["Tolerance calibrated from variance", "Cost of a PR run bounded", "Failures link to the diffed metric"]
+
+[[issue]]
+id = "E15-08"
+title = "Model and prompt A/B harness"
+milestone = "M4"
+deps = ["E15-05", "E20-02"]
+summary = "Compare role-model assignments with statistical tests to choose defaults."
+acceptance = ["Significance reported", "Cost-adjusted ranking", "Results feed default config"]
+
+# ===========================================================================
+[[epic]]
+id = "E16"
+title = "Security & Threat Model of Val"
+theme = "trust"
+goal = "Val runs untrusted code and reads untrusted text; it must be safe to run against real repos and credentials."
+milestone = "M2"
+lang = ["rust", "aws"]
+
+[[issue]]
+id = "E16-01"
+title = "Threat model"
+type = "adr"
+milestone = "M0"
+deps = []
+summary = "STRIDE for the platform: assets, trust boundaries, abuse cases (prompt injection via repo, issues, PRs; malicious tests; secret exfiltration; supply chain; token abuse)."
+acceptance = ["Reviewed by security", "Each threat has a control or accepted risk", "Linked from roadmap issues that implement controls"]
+
+[[issue]]
+id = "E16-02"
+title = "Prompt-injection defenses"
+milestone = "M3"
+deps = ["E16-01", "E15-06"]
+summary = "Provenance-tag all repo-derived text as data, restrict tools, ignore embedded instructions, and test with honeypot injections."
+acceptance = ["Injection honeypots pass", "No tool grants derive from repo text", "Residual risk documented"]
+
+[[issue]]
+id = "E16-03"
+title = "Secret handling and secret-scan gate"
+deps = ["E16-01"]
+summary = "No secrets in model context or sandbox; diff scanning for secrets as a gate; GitHub App key storage rules."
+acceptance = ["Canary secrets never leave the host", "Scan gate in verdict", "Key storage option documented per environment"]
+
+[[issue]]
+id = "E16-04"
+title = "Supply-chain controls for Val"
+deps = ["E00-06"]
+lang = ["gha", "rust"]
+summary = "Pinned Actions, cargo-vet or cargo-deny policy, release provenance verification, and detection of dependencies added by agents."
+acceptance = ["All Actions pinned by SHA", "Provenance verified on install", "Policy in CI"]
+
+[[issue]]
+id = "E16-05"
+title = "Bedrock invocation logging and audit"
+milestone = "M4"
+deps = ["E09-07"]
+lang = ["aws"]
+summary = "Configure model invocation logging to S3/CloudWatch with retention and access controls; document what is logged."
+acceptance = ["Logging verified in the pilot account", "Retention set", "Sensitive-content handling decided"]
+
+[[issue]]
+id = "E16-06"
+title = "Data-handling policy and repo classification"
+size = "S"
+milestone = "M3"
+deps = ["E16-01"]
+summary = "Define what code and context may reach the LLM (only your Bedrock account and region), classify repos, and make val doctor and policy enforce it."
+acceptance = ["Restricted repos cannot run LLM stages", "Region and endpoint pinned", "Policy visible in evidence"]
+
+[[issue]]
+id = "E16-07"
+title = "Sandbox escape and resource-abuse red team"
+milestone = "M4"
+deps = ["E04-04"]
+summary = "Attempt breakout, exfiltration, and resource exhaustion from agent-authored tests."
+acceptance = ["Findings tracked to closure", "Regression tests added", "Repeated before autonomy milestone"]
+
+[[issue]]
+id = "E16-08"
+title = "GitHub App permission manifest and least-privilege review"
+size = "S"
+deps = ["E18-01"]
+summary = "Minimum permissions per capability with a documented justification for each."
+acceptance = ["Permissions diffed in CI against the manifest", "Per-stage permission profiles", "Reviewed by org admins"]

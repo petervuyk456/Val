@@ -1,0 +1,180 @@
+# ===========================================================================
+[[epic]]
+id = "E07"
+title = "Verification Gauntlet"
+theme = "verify"
+goal = "A deterministic, LLM-free pipeline of gates that decides whether any test change is genuinely strong. The heart of Val."
+milestone = "M2"
+lang = ["rust"]
+
+[[issue]]
+id = "E07-01"
+title = "Gate framework and val verify skeleton"
+deps = ["E01-01", "E01-06"]
+summary = "Gate trait (inputs, evidence, verdict), ordered pipeline with short-circuit policy, results schema, and the `val verify` command."
+acceptance = ["Gates declare cost class for ordering", "Results machine-readable", "Gate crate has no dependency on the runtime crate (CI-enforced)"]
+
+[[issue]]
+id = "E07-02"
+title = "Gate: suite integrity versus base"
+deps = ["E07-01", "E05-05"]
+summary = "The full existing suite must still pass; no test deleted, skipped, xfailed, or weakened relative to base unless explicitly declared."
+acceptance = ["Deleted/renamed tests detected by AST and junit diff", "Declared waivers require reasons", "Red-team cases for S-05 rejected"]
+
+[[issue]]
+id = "E07-03"
+title = "Gate: test anti-pattern linter (Python and TypeScript)"
+deps = ["E07-01", "E03-03", "E03-04"]
+size = "L"
+summary = "Rules as data: no assertions, tautologies, asserting mock return values, mocking the SUT, excessive mock-to-assert ratio, swallowed exceptions, snapshot-only, sleeps, skip/xfail/.only. Severities and per-repo overrides."
+acceptance = ["Each rule has positive and negative fixtures", "Rule engine is AST-based, not regex", "Overrides require reasons and are listed in the verdict"]
+
+[[issue]]
+id = "E07-04"
+title = "Gate: diff policy (allowed paths per role and change class)"
+deps = ["E07-01"]
+summary = "Verify by git diff that only permitted paths changed; tests-only for Builder; forbid source, config, CI, lockfiles, and coverage-config edits."
+acceptance = ["Path rules evaluated on the final tree, not agent claims", "Rename tricks and symlinks handled", "Violation message names the rule"]
+
+[[issue]]
+id = "E07-05"
+title = "Gate: coverage proof from raw reports on a clean checkout"
+deps = ["E07-01", "E05-04", "E05-08"]
+summary = "Recompute module and diff branch-coverage deltas in a fresh sandbox; compare to ratchet and thresholds."
+acceptance = ["Agent-supplied numbers are never read", "Coverage attributed to SUT lines only", "Excluded-code edits detected"]
+
+[[issue]]
+id = "E07-06"
+title = "Gate: fail-before / pass-after proof"
+deps = ["E07-01", "E08-04"]
+summary = "New tests must fail against targeted defects (or the base commit for bug-fixes) and pass on head."
+acceptance = ["A test that passes on all mutants is rejected", "Bug-fix mode uses the pre-fix commit", "Evidence lists defects used"]
+
+[[issue]]
+id = "E07-07"
+title = "Gate: mutation score on touched code"
+deps = ["E07-01", "E08-02"]
+summary = "Run the mutation engine scoped to changed and targeted code; require per-tier thresholds and a held-out mutant set not shown to the Builder."
+acceptance = ["Thresholds by risk tier", "Survivors reported at behavior level", "Each new test must kill at least one mutant or cover a new obligation (marginal value), or be reported as redundant", "Time budget respected with sampling and seed recorded"]
+
+[[issue]]
+id = "E07-08"
+title = "Gate: flake and determinism"
+deps = ["E07-01", "E04-03"]
+summary = "Rerun new tests N times, in random order, in parallel, with network denied and time/seeds frozen; any inconsistency fails."
+acceptance = ["Detects sleep-, time-, order-, and network-dependent tests in red-team corpus", "N and parallelism configurable", "Failing seed printed for replay"]
+
+[[issue]]
+id = "E07-09"
+title = "Gate: mock fidelity"
+milestone = "M4"
+deps = ["E07-03"]
+summary = "Mocks must conform to real signatures: autospec in Python, typed mocks/satisfies in TypeScript; untyped MagicMock() and any are rejected for SUT-owned types."
+acceptance = ["Mocks of the SUT's own module rejected", "Spec-declared mock boundaries enforced", "Per-language rules documented"]
+
+[[issue]]
+id = "E07-10"
+title = "Gate: runtime budget"
+size = "S"
+deps = ["E07-01"]
+summary = "Per-test and total runtime deltas must fit a budget; slow tests must carry the right layer marker."
+acceptance = ["Budgets configurable per layer", "Outliers named", "Warmup noise handled"]
+
+[[issue]]
+id = "E07-11"
+title = "Verdict aggregator and ratchet enforcement"
+deps = ["E07-05", "E07-07", "E02-05"]
+size = "S"
+summary = "Combine gate results into Pass | Fail | NeedsHuman with structured reasons and CI exit codes; enforce ratchets."
+acceptance = ["Every Fail has at least one actionable reason", "NeedsHuman reasons enumerated", "Exit-code contract tested"]
+
+[[issue]]
+id = "E07-12"
+title = "Advisory mode and would-have-failed telemetry"
+deps = ["E07-11"]
+size = "S"
+summary = "`--advisory` reports verdicts without failing the build and records would-have-failed counts for tuning before enforcement."
+acceptance = ["Advisory result visible in job summary", "Telemetry exported", "Flip to blocking is a single config change"]
+
+[[issue]]
+id = "E07-13"
+title = "Gate: markers, naming, and placement conventions"
+size = "S"
+deps = ["E07-01", "E02-01"]
+summary = "Tests live where repo conventions say, with the right pytest markers or vitest projects."
+acceptance = ["Adapt-mode learns conventions", "Standardize-mode enforces val layout", "Violations fixable by suggestion"]
+
+[[issue]]
+id = "E07-14"
+title = "Red-team corpus of known-bad tests"
+deps = ["E07-03", "E07-07", "E07-08"]
+summary = "One or more intentionally bad tests per shortcut in the anti-shortcut catalog; every gate must reject its targets; runs in Val's CI."
+acceptance = ["Each catalog row has a corpus entry or a documented N/A", "Adding a gate without corpus entries fails CI", "Corpus covers Python and TypeScript"]
+
+# ===========================================================================
+[[epic]]
+id = "E08"
+title = "Mutation Testing Engine"
+theme = "verify"
+goal = "Controlled, fast, diff-scoped mutation testing with Rust-applied targeted mutants and honest handling of noise."
+milestone = "M2"
+lang = ["rust", "python", "typescript"]
+
+[[issue]]
+id = "E08-01"
+title = "MutationEngine trait and capability model"
+deps = ["E01-01"]
+summary = "Scope by file/line/diff, timeouts, parallelism, operator sets, and result normalization behind a trait."
+acceptance = ["Capabilities discoverable per backend", "Fake engine for gate tests", "Cancellation safe"]
+
+[[issue]]
+id = "E08-02"
+title = "Python backend: mutmut adapter"
+deps = ["E08-01", "E04-03"]
+summary = "Scoped runs, caching, src-layout and namespace-package handling, and result parsing."
+acceptance = ["Diff-scoped run within budget on a medium repo", "Cache reuse measured", "Parity tests with direct mutmut"]
+
+[[issue]]
+id = "E08-03"
+title = "TypeScript backend: Stryker adapter"
+deps = ["E08-01", "E04-03"]
+summary = "Incremental mode, vitest and jest runners, per-package scoping in monorepos."
+acceptance = ["Works with vitest and jest projects", "Per-package config synthesized when absent", "Timeouts do not hang CI"]
+
+[[issue]]
+id = "E08-04"
+title = "Targeted AST mutant generator and applier"
+deps = ["E03-05", "E08-01"]
+size = "L"
+summary = "Rust applies precise mutants (relational/boundary, negation, return, exception, argument swap) in a throwaway worktree; powers fail-before proof and fast diff-scoped checks."
+acceptance = ["Mutants always compile/parse or are discarded", "Operator taxonomy shared with E05-06", "Throwaway worktrees never touch the working copy"]
+
+[[issue]]
+id = "E08-05"
+title = "Equivalent-mutant and noise handling"
+deps = ["E08-02"]
+summary = "Triage survivors; store justified equivalents; define timeout-as-killed policy and flaky-mutant handling."
+acceptance = ["Suppression requires justification and expiry", "Noise rate reported", "Policy documented"]
+
+[[issue]]
+id = "E08-06"
+title = "Mutation budget planner"
+deps = ["E08-04"]
+summary = "Choose the most informative mutants within a time budget: high-risk first, diff-scoped, seeded sampling."
+acceptance = ["Planner deterministic given seed", "Coverage of operators balanced", "Budget overrun impossible"]
+
+[[issue]]
+id = "E08-07"
+title = "LLM-proposed semantic mutants applied by Rust"
+milestone = "M4"
+deps = ["E08-04", "E09-04"]
+summary = "A role proposes domain-aware mutants as structured patches; Rust validates and applies them; the LLM never edits source."
+acceptance = ["Patches rejected unless they parse and change behavior", "Proposer has read-only tools", "Held-out vs shown mutants kept separate"]
+
+[[issue]]
+id = "E08-08"
+title = "Behavior-level survivor feedback to the Builder"
+milestone = "M4"
+deps = ["E08-02", "E08-05"]
+summary = "Translate surviving mutants into behavior descriptions ('boundary at 0 unverified') without revealing the patch, to avoid assertions that overfit the mutant."
+acceptance = ["Feedback never contains mutant diffs", "Held-out set scoring shows less overfit than showing patches (measured)", "Format documented"]

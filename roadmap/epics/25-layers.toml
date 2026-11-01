@@ -1,0 +1,421 @@
+# Layer packs are independently adoptable after M4. Within each pack the order is:
+# charter -> gate (deterministic) -> generator -> pilot. Gates arrive first so
+# even human-written tests in that layer can be verified.
+
+# ===========================================================================
+[[epic]]
+id = "E25"
+title = "Layer: Smoke & Health"
+theme = "layers"
+goal = "Fast, universal 'is it alive' checks run on every push and after every deploy."
+milestone = "L"
+lang = ["python", "typescript"]
+
+[[issue]]
+id = "E25-01"
+title = "Smoke contract and charter"
+type = "adr"
+size = "S"
+deps = ["E07-13"]
+summary = "Define smoke: under 60s, declared dependencies only, marker/project conventions, and what must never be in smoke."
+acceptance = ["Time budget enforceable by gate", "Per-language marker conventions", "Examples for service, library, and CLI repos"]
+
+[[issue]]
+id = "E25-02"
+title = "Python smoke generator"
+deps = ["E25-01", "E12-01"]
+summary = "Entrypoint boot, env hydration, config validation, and AWS client construction without calls; marker `smoke`."
+acceptance = ["No network", "Fails when entrypoints are missing", "Passes anti-pattern lint"]
+
+[[issue]]
+id = "E25-03"
+title = "TypeScript smoke generator"
+deps = ["E25-01", "E12-01"]
+summary = "Typecheck/build, module import, and health-endpoint boot in a vitest `smoke` project."
+acceptance = ["Works in pnpm workspaces per package", "No network", "Fails on circular import crashes"]
+
+[[issue]]
+id = "E25-04"
+title = "Smoke gate and required-check wiring"
+size = "S"
+deps = ["E25-01", "E19-03"]
+summary = "Enforce the time budget and make smoke a required check via generated workflow."
+acceptance = ["Budget breach fails", "Workflow synthesized by `val ci init`", "Post-deploy reuse documented"]
+
+# ===========================================================================
+[[epic]]
+id = "E26"
+title = "Layer: Integration & Contract"
+theme = "layers"
+goal = "Integration tests against real, ephemeral dependencies - not mock-everything structures - plus contract tests at boundaries."
+milestone = "L"
+lang = ["python", "typescript", "aws"]
+
+[[issue]]
+id = "E26-01"
+title = "Service dependency declaration"
+size = "S"
+deps = ["E02-01", "E04-03"]
+summary = "Repos declare dependencies (postgres, redis, localstack services, kafka) in val.toml; Val provisions them."
+acceptance = ["Schema documented", "Auto-detected suggestions in `val init`", "Versions pinned"]
+
+[[issue]]
+id = "E26-02"
+title = "Ephemeral service provisioning in sandbox and CI"
+deps = ["E26-01"]
+summary = "Testcontainers or GHA service containers with health checks, parallel-safe isolation (unique schemas/prefixes), and teardown."
+acceptance = ["Works on laptop and GHA", "Leak detection for containers and ports", "Startup time budgeted"]
+
+[[issue]]
+id = "E26-03"
+title = "LocalStack patterns for S3, DynamoDB, SQS, Lambda"
+deps = ["E26-02"]
+summary = "Fixtures, fidelity notes, and a policy for when real ephemeral AWS resources are warranted."
+acceptance = ["Fixtures per service in both languages", "Known-gap list", "Cost guard for real-AWS escape hatch"]
+
+[[issue]]
+id = "E26-04"
+title = "Relational DB testing"
+deps = ["E26-02"]
+summary = "Migrations from scratch, transactional isolation, and factory-based data for Postgres/MySQL."
+acceptance = ["Migration up/down tested", "Parallel tests isolated", "No shared mutable state"]
+
+[[issue]]
+id = "E26-05"
+title = "Third-party HTTP: record/replay and provider verification"
+deps = ["E26-02"]
+summary = "VCR.py/msw/nock fixtures with staleness checks; live calls forbidden in tests; scheduled provider-verification job."
+acceptance = ["Stale cassette detection", "Live-call attempt fails the test", "Secrets scrubbed from cassettes"]
+
+[[issue]]
+id = "E26-06"
+title = "ADR: contract-testing approach"
+type = "adr"
+size = "S"
+deps = ["E26-01"]
+summary = "Choose Pact with a broker versus schema/OpenAPI-based contracts for the estate; consider consumer-driven contracts for shared libraries."
+acceptance = ["Decision recorded", "Pilot on one boundary", "Operational cost estimated"]
+
+[[issue]]
+id = "E26-07"
+title = "Queue and stream test harness"
+deps = ["E26-02"]
+summary = "SQS/Redis/Kafka harness for publish-consume tests with deterministic draining."
+acceptance = ["No sleeps for sync", "Consumer lag handled", "Cleanup guaranteed"]
+
+[[issue]]
+id = "E26-08"
+title = "Integration gate: real dependencies only"
+deps = ["E07-03", "E26-02"]
+summary = "Reject integration tests that mock the dependency under test; verify the container was actually exercised."
+acceptance = ["Traffic observed at the dependency", "Red-team cases rejected", "Layer marker enforced"]
+
+# ===========================================================================
+[[epic]]
+id = "E27"
+title = "Layer: Performance & Load"
+theme = "layers"
+goal = "Regression-proof latency and throughput on critical paths without noisy flaky benchmarks."
+milestone = "L"
+lang = ["python", "typescript"]
+
+[[issue]]
+id = "E27-01"
+title = "Performance charter and target elicitation"
+type = "adr"
+size = "S"
+deps = ["E07-13"]
+summary = "Identify critical paths, derive p95/p99 targets from CloudWatch/Sonar/user config, and distinguish micro, load, soak, and burst."
+acceptance = ["Per-service targets in val.toml", "Rationale recorded", "Never targets production"]
+
+[[issue]]
+id = "E27-02"
+title = "Python microbenchmarks with regression thresholds"
+deps = ["E27-01", "E12-01"]
+summary = "pytest-benchmark with stored baselines and tolerance bands."
+acceptance = ["Variance reported", "Baselines per runner class", "No single-run thresholds"]
+
+[[issue]]
+id = "E27-03"
+title = "Locust scenario generator and harness"
+deps = ["E27-01", "E26-02"]
+lang = ["python"]
+summary = "Generate locustfiles from route inventories and run against an ephemeral environment."
+acceptance = ["Safety limits on request rates", "Ephemeral target only", "Artifacts uploaded"]
+
+[[issue]]
+id = "E27-04"
+title = "k6 script generator for TypeScript services"
+deps = ["E27-01", "E26-02"]
+lang = ["typescript"]
+summary = "Generate k6 scripts with thresholds from the charter."
+acceptance = ["Thresholds enforced", "Scenario ramp profiles", "Artifacts uploaded"]
+
+[[issue]]
+id = "E27-05"
+title = "Noise control and statistical regression detection"
+deps = ["E27-02"]
+summary = "Repeated runs, outlier handling, and significance tests rather than fixed thresholds."
+acceptance = ["False-alarm rate measured", "Runner calibration step", "Documented method"]
+
+[[issue]]
+id = "E27-06"
+title = "Performance gate and trend storage"
+deps = ["E27-05", "E02-04"]
+summary = "Compare against baselines, store trends, and publish to CloudWatch/GHA artifacts."
+acceptance = ["Gate advisory-first", "Trends queryable", "Baseline updates reviewed"]
+
+[[issue]]
+id = "E27-07"
+title = "Soak, stress, and burst profiles"
+deps = ["E27-03", "E27-04"]
+summary = "Longer profiles with strict safety limits and ephemeral targets."
+acceptance = ["Budget and duration caps", "Abort conditions", "Runs on AWS workers when long"]
+
+# ===========================================================================
+[[epic]]
+id = "E28"
+title = "Layer: End-to-End (Playwright)"
+theme = "layers"
+goal = "Stable user-journey tests where a UI exists, without flake."
+milestone = "L"
+lang = ["typescript"]
+
+[[issue]]
+id = "E28-01"
+title = "UI applicability detection and journey discovery"
+deps = ["E03-04", "E25-01"]
+summary = "Detect UI apps and propose journeys from routes, components, and docs."
+acceptance = ["Non-UI repos skipped explicitly", "Journeys ranked by risk", "Human-approved list"]
+
+[[issue]]
+id = "E28-02"
+title = "Playwright generator"
+deps = ["E28-01", "E12-01"]
+summary = "Page objects, role/testid selectors, auth fixtures, traces on failure."
+acceptance = ["No CSS-path selectors", "Auth state reuse", "Passes anti-pattern lint"]
+
+[[issue]]
+id = "E28-03"
+title = "Flake hardening"
+deps = ["E28-02", "E07-08"]
+summary = "Web-first waits, network policy, banned retry masking, and sharding."
+acceptance = ["Retries never hide failures", "Flake gate applied", "Shard balance tracked"]
+
+[[issue]]
+id = "E28-04"
+title = "Accessibility checks (axe)"
+size = "S"
+deps = ["E28-02"]
+summary = "Optional axe scans per journey with budgets."
+acceptance = ["Opt-in", "Violations categorized", "Baselines ratcheted"]
+
+# ===========================================================================
+[[epic]]
+id = "E29"
+title = "Layer: Data Contracts & Quality"
+theme = "layers"
+goal = "Schema compatibility, data expectations, and reconciliation so data products change safely."
+milestone = "L"
+lang = ["python", "typescript", "aws"]
+
+[[issue]]
+id = "E29-01"
+title = "Data contract inventory"
+deps = ["E03-05"]
+summary = "Detect schemas (pydantic, JSON Schema, Avro, Protobuf, OpenAPI, SQL DDL, zod/TS types) and their producers/consumers."
+acceptance = ["Inventory JSON", "Unknown formats flagged", "Consumers linked cross-repo when available"]
+
+[[issue]]
+id = "E29-02"
+title = "Schema compatibility gate"
+deps = ["E29-01", "E07-01"]
+summary = "Backward/forward compatibility checks of schema changes versus base."
+acceptance = ["Breaking change fails with explanation", "Per-format tools wrapped", "Waiver workflow"]
+
+[[issue]]
+id = "E29-03"
+title = "Schema-derived round-trip and property tests"
+deps = ["E29-01", "E12-04"]
+summary = "Generate serialization round-trip, boundary, and invariant tests from schemas."
+acceptance = ["Strategies derived from constraints", "Seeds recorded", "Lint-clean"]
+
+[[issue]]
+id = "E29-04"
+title = "Data quality expectation tests"
+deps = ["E29-01", "E12-01"]
+summary = "Pandera/Great Expectations/zod-style tests for null, range, uniqueness, and referential rules."
+acceptance = ["Rules derived and reviewed", "Sample-data fixtures synthetic", "Failure messages actionable"]
+
+[[issue]]
+id = "E29-05"
+title = "Reconciliation and freshness checks"
+deps = ["E29-04"]
+summary = "Templates for row-count/checksum reconciliation and freshness SLAs as scheduled tests or monitors."
+acceptance = ["Thresholds configurable", "Alert hooks documented", "Safe on production read replicas"]
+
+[[issue]]
+id = "E29-06"
+title = "Golden-dataset and differential testing"
+deps = ["E29-04"]
+summary = "Compare old and new transformation outputs on golden inputs with tolerance rules."
+acceptance = ["Numeric tolerance configurable", "Diffs summarized", "Golden updates reviewed"]
+
+[[issue]]
+id = "E29-07"
+title = "Synthetic, PII-free fixtures"
+deps = ["E29-01"]
+summary = "Generate realistic synthetic data with classification awareness; never copy production data."
+acceptance = ["No real values in fixtures (scanner)", "Deterministic seeds", "Classification tags honored"]
+
+# ===========================================================================
+[[epic]]
+id = "E30"
+title = "Layer: Delivery Semantics"
+theme = "layers"
+goal = "Prove idempotency, ordering, replay, and failure-handling guarantees for messaging and pipeline code."
+milestone = "L"
+lang = ["python", "typescript", "aws"]
+
+[[issue]]
+id = "E30-01"
+title = "Delivery-semantics taxonomy and declaration"
+type = "adr"
+size = "S"
+deps = ["E26-01"]
+summary = "Declare per component at-least-once, at-most-once, effectively-once, and ordering guarantees; detect where possible."
+acceptance = ["Declared in val.toml", "Detection heuristics documented", "Drives test selection"]
+
+[[issue]]
+id = "E30-02"
+title = "Idempotency test generator"
+deps = ["E30-01", "E26-07"]
+summary = "Replay the same message or request N times and assert a single effect."
+acceptance = ["Effects observed at the dependency", "N configurable", "Passes integration gate"]
+
+[[issue]]
+id = "E30-03"
+title = "Ordering, duplicate, and late-data harness"
+deps = ["E30-01", "E26-07"]
+summary = "Out-of-order, duplicate, and late-arriving event scenarios."
+acceptance = ["Deterministic scheduling", "Watermark semantics covered", "Reproducible seeds"]
+
+[[issue]]
+id = "E30-04"
+title = "DLQ, poison message, and retry-exhaustion tests"
+deps = ["E30-02"]
+summary = "Verify poison messages go to DLQ, retries are bounded, and nothing is lost."
+acceptance = ["Loss detection", "Redrive verified", "Alarms asserted where available"]
+
+[[issue]]
+id = "E30-05"
+title = "Outbox and dedupe-key pattern verification"
+deps = ["E30-02", "E26-04"]
+summary = "Transaction-boundary tests for outbox/dedupe designs."
+acceptance = ["Crash-between-steps simulations", "No double-publish", "Documented patterns"]
+
+[[issue]]
+id = "E30-06"
+title = "Backfill and replay safety tests"
+deps = ["E30-02"]
+summary = "Replaying historical data must not duplicate or corrupt downstream state."
+acceptance = ["Bounded blast radius", "Dry-run mode tested", "Idempotency proven"]
+
+# ===========================================================================
+[[epic]]
+id = "E31"
+title = "Layer: Resilience & Fault Injection"
+theme = "layers"
+goal = "Show that dependency failures degrade gracefully and retries are safe."
+milestone = "L"
+lang = ["python", "typescript", "aws"]
+
+[[issue]]
+id = "E31-01"
+title = "Failure-mode catalog"
+type = "docs"
+size = "S"
+deps = ["E26-01"]
+summary = "Per dependency type: timeout, throttle, 5xx, partial write, slow response, connection reset, credential expiry."
+acceptance = ["Mapped to injectors", "Mapped to expected behaviors", "Reviewed by service owners"]
+
+[[issue]]
+id = "E31-02"
+title = "Fault-injection harness (Toxiproxy, LocalStack)"
+deps = ["E31-01", "E26-02"]
+summary = "Inject faults between code and dependencies inside the sandbox."
+acceptance = ["Deterministic injection", "Safe teardown", "Works in CI"]
+
+[[issue]]
+id = "E31-03"
+title = "Retry, timeout, and circuit-breaker tests"
+deps = ["E31-02"]
+summary = "Verify bounded retries with jitter, retry safety (idempotency), timeouts, and breaker states."
+acceptance = ["Unbounded retry detected", "Time control without sleeps", "Passes flake gate"]
+
+[[issue]]
+id = "E31-04"
+title = "AWS throttling, credentials, and consistency scenarios"
+deps = ["E31-02", "E26-03"]
+summary = "ThrottlingException handling, expired credentials, and eventual consistency."
+acceptance = ["Scenarios per service", "Backoff verified", "Clear failure messages"]
+
+[[issue]]
+id = "E31-05"
+title = "Concurrency and race tests"
+deps = ["E31-02"]
+summary = "Controlled-interleaving and stress repetition to expose races, with reproduction seeds."
+acceptance = ["Reproducible failures", "Bounded runtime", "Documented limits"]
+
+[[issue]]
+id = "E31-06"
+title = "Degradation, failover, and DR drill templates"
+deps = ["E31-03"]
+summary = "Graceful-degradation tests and templates for failover and backfill drills."
+acceptance = ["Runbook-linked", "Never targets production", "Manual-trigger drills documented"]
+
+# ===========================================================================
+[[epic]]
+id = "E32"
+title = "Layer: Security, Privacy & IaC"
+theme = "layers"
+goal = "Authorization, privacy, and infrastructure-policy behaviors are tested like any other behavior."
+milestone = "L"
+lang = ["python", "typescript", "aws"]
+
+[[issue]]
+id = "E32-01"
+title = "Authorization and tenant-isolation test generator"
+deps = ["E03-05", "E12-01"]
+summary = "From route and permission inventories, generate allow/deny matrices and cross-tenant access tests."
+acceptance = ["Deny paths asserted", "Matrix reviewed by security", "No hard-coded credentials"]
+
+[[issue]]
+id = "E32-02"
+title = "PII handling tests"
+deps = ["E29-07", "E12-01"]
+summary = "Log redaction, retention, encryption expectations, and export/delete flows."
+acceptance = ["Redaction asserted on log output", "Synthetic data only", "Classification-aware"]
+
+[[issue]]
+id = "E32-03"
+title = "IaC test harness"
+deps = ["E07-01"]
+lang = ["aws"]
+summary = "CDK assertions, Terraform plan policy tests (conftest/OPA), cfn-guard, and IAM least-privilege checks."
+acceptance = ["Per-tool adapters", "Findings link to resources", "Runs without credentials"]
+
+[[issue]]
+id = "E32-04"
+title = "Dependency and secret scanning gates"
+size = "S"
+deps = ["E16-03", "E17-03"]
+summary = "pip-audit, npm audit, gitleaks, and Sonar hotspots as gates with waiver workflow."
+acceptance = ["Severity thresholds", "Waivers expire", "Results in evidence"]
+
+[[issue]]
+id = "E32-05"
+title = "Input validation and injection fuzz tests"
+deps = ["E12-04"]
+summary = "Hypothesis/fast-check/schemathesis driven input fuzzing for validation boundaries."
+acceptance = ["Bounded runtime", "Seeds recorded", "Findings triaged as bugs, not silently pinned"]

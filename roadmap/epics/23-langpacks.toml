@@ -1,0 +1,113 @@
+# ===========================================================================
+[[epic]]
+id = "E23"
+title = "Python Language Pack"
+theme = "packs"
+goal = "First-class Python support across Poetry, uv, and pip repos."
+milestone = "M1"
+lang = ["python", "rust"]
+
+[[issue]]
+id = "E23-01"
+title = "Environment resolution: Poetry, uv, pip"
+deps = ["E03-01", "E04-02"]
+summary = "Create the venv and install respecting lockfiles for each tool; select Python versions; cache."
+acceptance = ["Fixtures for all three managers", "Lockfile drift detected", "Works in container with caches"]
+
+[[issue]]
+id = "E23-02"
+title = "pytest integration"
+deps = ["E23-01"]
+summary = "Detect rootdir, conftest, markers, xdist; enforce branch=True coverage; emit junit and Cobertura."
+acceptance = ["Existing coverage config respected, overrides explicit", "Markers registered when absent", "xdist-safe"]
+
+[[issue]]
+id = "E23-03"
+title = "Hypothesis integration"
+milestone = "M4"
+size = "S"
+deps = ["E23-02"]
+summary = "Profiles, deterministic seeds in CI, database dir handling, and shrink reproduction."
+acceptance = ["Seeds recorded", "Flaky generation detected", "Example database not committed"]
+
+[[issue]]
+id = "E23-04"
+title = "Python mocking policy"
+milestone = "M4"
+deps = ["E07-09"]
+summary = "create_autospec/pytest-mock conventions, moto/LocalStack usage rules, and forbidden patterns."
+acceptance = ["Policy encoded as lint rules", "Exemptions documented", "Exemplars in prompt pack"]
+
+[[issue]]
+id = "E23-05"
+title = "Async and framework patterns"
+milestone = "M4"
+deps = ["E23-02"]
+summary = "pytest-asyncio/anyio, FastAPI/Flask/Django test clients, and dependency overrides."
+acceptance = ["Fixtures for each framework", "Event-loop leaks detected", "Documented limitations"]
+
+[[issue]]
+id = "E23-06"
+title = "Type-check gate for Python tests"
+milestone = "M4"
+size = "S"
+deps = ["E23-02"]
+summary = "mypy or pyright strict on test files; hallucinated imports and signatures fail."
+acceptance = ["Uses repo config when present", "Strict default for new test files", "Errors mapped to files and lines"]
+
+# ===========================================================================
+[[epic]]
+id = "E24"
+title = "TypeScript Language Pack"
+theme = "packs"
+goal = "First-class TypeScript support across npm, pnpm workspaces, Vitest, and Jest."
+milestone = "M1"
+lang = ["typescript", "rust"]
+
+[[issue]]
+id = "E24-01"
+title = "Environment resolution: npm and pnpm workspaces"
+deps = ["E03-10", "E04-02"]
+summary = "Node version selection, lockfile-respecting installs, per-package commands, and root vs package runners."
+acceptance = ["Workspace fixtures", "Frozen lockfile enforced", "Hoisting quirks documented"]
+
+[[issue]]
+id = "E24-02"
+title = "Vitest and Jest adapters"
+deps = ["E24-01"]
+summary = "Coverage via v8 or istanbul to LCOV, JSON/JUnit reporters, projects/workspaces, and ESM/CJS quirks."
+acceptance = ["Both runners on fixtures", "Branch coverage present", "Per-package aggregation"]
+
+[[issue]]
+id = "E24-03"
+title = "fast-check integration"
+milestone = "M4"
+size = "S"
+deps = ["E24-02"]
+summary = "Seed control, replay of failures, and arbitraries derived from types."
+acceptance = ["Seeds recorded", "Replay command printed", "Shrinking preserved"]
+
+[[issue]]
+id = "E24-04"
+title = "TypeScript mocking policy"
+milestone = "M4"
+deps = ["E07-09"]
+summary = "Typed mocks (mock-extended, satisfies), no any, msw for HTTP, and forbidden patterns."
+acceptance = ["Policy encoded as lint rules", "Exemplars in prompt pack", "Exemptions documented"]
+
+[[issue]]
+id = "E24-05"
+title = "Strictness gate for TypeScript tests"
+milestone = "M4"
+size = "S"
+deps = ["E24-02"]
+summary = "tsc --noEmit on test files with strict flags plus eslint rules (no-focused-tests, expect-expect)."
+acceptance = ["Repo config honored", "Fails on any in tests", "Fast incremental mode"]
+
+[[issue]]
+id = "E24-06"
+title = "Affected-package detection for pnpm monorepos"
+milestone = "M2"
+deps = ["E24-01", "E07-05"]
+summary = "Git-diff based affected packages (build-tool agnostic) so gates and mutation scale to large workspaces."
+acceptance = ["Transitive dependents included", "Per-package thresholds", "Matches turbo/nx on fixtures where present"]

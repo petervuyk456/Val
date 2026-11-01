@@ -1,0 +1,434 @@
+# ===========================================================================
+[[epic]]
+id = "E33"
+title = "Cross-Repo Intelligence"
+theme = "scale"
+goal = "Reason across repos: shared libraries, their consumers, and the contracts between them."
+milestone = "M6"
+lang = ["rust", "python", "typescript"]
+
+[[issue]]
+id = "E33-01"
+title = "Multi-repo workspace model"
+deps = ["E01-01"]
+summary = "A Workspace of N repos with read-only vs write targets, cross-repo path references, and per-repo credentials."
+acceptance = ["Single-repo is a degenerate case", "Write targets explicit in every action", "Serializable and resumable"]
+
+[[issue]]
+id = "E33-02"
+title = "Cross-repo package dependency graph"
+deps = ["E33-01", "E03-10"]
+summary = "Map internal npm/Poetry packages (registry, git, path refs) to producers and consumers across repos."
+acceptance = ["Private registry names resolved", "Version constraints captured", "Graph exportable and visualized"]
+
+[[issue]]
+id = "E33-03"
+title = "Blast-radius scoring"
+deps = ["E33-02", "E06-01"]
+summary = "Rank shared code by dependents, usage depth, and criticality and feed it into gap scoring."
+acceptance = ["Score explainable", "Cycles handled", "Sensitivity analyzed"]
+
+[[issue]]
+id = "E33-04"
+title = "Downstream impact testing"
+deps = ["E33-02", "E04-03"]
+summary = "On a library change, build the consumer matrix and run consumer suites against the candidate version before release."
+acceptance = ["Runs in CI on library PRs", "Consumer failures attributed to the change", "Cost bounded by affected-consumer selection"]
+
+[[issue]]
+id = "E33-05"
+title = "Consumer-driven contract extraction"
+deps = ["E33-02", "E26-06"]
+summary = "Infer how consumers use library APIs from call sites and generate contract tests in the library."
+acceptance = ["Unused API surface reported", "Contracts reviewed before merge", "Stable under refactors"]
+
+[[issue]]
+id = "E33-06"
+title = "ADR: shared test-utilities library"
+type = "adr"
+size = "S"
+deps = ["E33-02"]
+summary = "Scope, packaging, versioning, and governance of a Val-maintained library of fixtures, factories, fake AWS helpers, markers, and assertion helpers."
+acceptance = ["Decision recorded", "Breaking-change policy", "Ownership assigned"]
+
+[[issue]]
+id = "E33-07"
+title = "Shared test-utils: Python package"
+deps = ["E33-06"]
+lang = ["python"]
+summary = "Publish the Python utilities with docs and tests that meet Val's own bar."
+acceptance = ["Mutation score threshold met", "Published to the private index", "Adoption guide"]
+
+[[issue]]
+id = "E33-08"
+title = "Shared test-utils: TypeScript package"
+deps = ["E33-06"]
+lang = ["typescript"]
+summary = "Publish the TS utilities with docs and tests that meet Val's own bar."
+acceptance = ["Mutation score threshold met", "Published to the private registry", "Adoption guide"]
+
+[[issue]]
+id = "E33-09"
+title = "Cross-repo agent context"
+deps = ["E33-02", "E09-10"]
+summary = "Load relevant slices of other repos into role context with access control and provenance."
+acceptance = ["Access respects repo classification", "Slices cited", "Size-bounded"]
+
+[[issue]]
+id = "E33-10"
+title = "Coordinated multi-repo PR sets"
+deps = ["E18-03", "E33-04"]
+summary = "Linked PRs across repos with ordering, status roll-up, and rollback guidance."
+acceptance = ["Merge order enforced", "Partial merge detected", "Single status view"]
+
+# ===========================================================================
+[[epic]]
+id = "E34"
+title = "Fleet Orchestration"
+theme = "scale"
+goal = "Run Val across 10-50 repos within budgets, with fair scheduling and sane PR volume."
+milestone = "M6"
+lang = ["rust"]
+
+[[issue]]
+id = "E34-01"
+title = "Fleet manifest loader and repo registry"
+deps = ["E02-03"]
+summary = "Load, validate, and query the manifest; resolve owners and tiers."
+acceptance = ["Manifest errors point to lines", "Owners validated against org", "Registry queryable via CLI"]
+
+[[issue]]
+id = "E34-02"
+title = "Campaign model"
+deps = ["E34-01", "E20-03"]
+summary = "A campaign has a goal (e.g. raise branch coverage of tier-1 repos), scope, budgets, and stop conditions."
+acceptance = ["Campaign state persisted", "Stop conditions tested", "Progress report"]
+
+[[issue]]
+id = "E34-03"
+title = "Work queue and scheduler"
+deps = ["E34-02", "E06-04"]
+summary = "Prioritize gaps by risk and ROI with concurrency limits, fairness, and per-repo cooldowns."
+acceptance = ["Starvation-free", "Deterministic given seed", "Budget-aware"]
+
+[[issue]]
+id = "E34-04"
+title = "Worker abstraction: local, GHA, AWS"
+deps = ["E34-03", "E09-01"]
+summary = "Executor trait for dispatching runs to laptop, Actions, or AWS workers."
+acceptance = ["Same run semantics on all targets", "Result retrieval uniform", "Failure modes documented"]
+
+[[issue]]
+id = "E34-05"
+title = "Fleet status API and data model"
+size = "S"
+deps = ["E34-03", "E21-04"]
+summary = "Query current campaigns, per-repo stage, and outcomes for dashboards."
+acceptance = ["Schema versioned", "Pagination", "Auth documented"]
+
+[[issue]]
+id = "E34-06"
+title = "Adoption-stage tracking and promotion workflow"
+deps = ["E34-01", "E14-06"]
+summary = "Track each repo's stage (S0-S6), entry and exit checks, and approvals."
+acceptance = ["Promotion requires recorded approver", "Stage regressions auditable", "Matches the rollout playbook"]
+
+[[issue]]
+id = "E34-07"
+title = "PR volume and noise management"
+size = "S"
+deps = ["E34-03"]
+summary = "Caps per repo/team, batching, quiet hours, and digest summaries."
+acceptance = ["Caps configurable", "Digest mode", "Owners can snooze"]
+
+[[issue]]
+id = "E34-08"
+title = "Stale Val PR management"
+deps = ["E18-03"]
+summary = "Rebase, supersede, or close abandoned Val PRs."
+acceptance = ["Never closes human-modified PRs", "Superseding links old and new", "Dry-run"]
+
+# ===========================================================================
+[[epic]]
+id = "E35"
+title = "Test Lifecycle & Maintenance"
+theme = "scale"
+goal = "Keep suites healthy after they are written: flake, staleness, speed, and PR-time coverage."
+milestone = "M7"
+lang = ["rust", "python", "typescript"]
+
+[[issue]]
+id = "E35-01"
+title = "Flaky-test detection and quarantine"
+deps = ["E18-05"]
+summary = "Detect flakes from CI history and quarantine with an owner and an expiry."
+acceptance = ["Quarantine never silent", "Expiry enforced", "Flake rate trended"]
+
+[[issue]]
+id = "E35-02"
+title = "PR-time test agent"
+deps = ["E12-02", "E18-03"]
+summary = "On human PRs, propose or complete tests for changed code, diff-scoped."
+acceptance = ["Opt-in per repo", "Suggestions as separate commits or comments", "Gated like any Val PR"]
+
+[[issue]]
+id = "E35-03"
+title = "Test impact analysis"
+deps = ["E03-06", "E05-03"]
+summary = "Run only tests affected by a change, using coverage-derived mapping."
+acceptance = ["Safe fallback to full run", "Miss rate measured", "Time saved reported"]
+
+[[issue]]
+id = "E35-04"
+title = "Stale and redundant test detection"
+deps = ["E08-02"]
+summary = "Find tests that kill no mutants and add no coverage; propose pruning."
+acceptance = ["Human approval before deletion", "Evidence per proposal", "Never touches quarantined tests silently"]
+
+[[issue]]
+id = "E35-05"
+title = "Suite health score"
+deps = ["E21-04"]
+summary = "Per-repo score from speed, flake rate, mutation, coverage, and layer balance."
+acceptance = ["Definition documented", "Trend and drill-down", "Used in campaign prioritization"]
+
+[[issue]]
+id = "E35-06"
+title = "Intentional-change test maintenance"
+deps = ["E35-02"]
+summary = "When source changes intentionally, update affected tests and show why."
+acceptance = ["Never loosens assertions silently", "Human review required", "Diff-explained"]
+
+# ===========================================================================
+[[epic]]
+id = "E36"
+title = "Production Feedback Loop"
+theme = "scale"
+goal = "Escaped defects and live alarms become permanent regression tests; live issues are caught early."
+milestone = "M7"
+lang = ["rust", "aws"]
+
+[[issue]]
+id = "E36-01"
+title = "Signal ingestion adapters"
+deps = ["E18-02"]
+summary = "CloudWatch alarms/logs, GitHub Issues, and Jira behind a common signal interface."
+acceptance = ["Adapters pluggable", "Auth least-privilege", "Replay for tests"]
+
+[[issue]]
+id = "E36-02"
+title = "Incident-to-regression-test pipeline"
+deps = ["E36-01", "E12-02"]
+size = "L"
+summary = "Link a signal to code (stack traces, commits), reproduce, and write a failing regression test; humans fix the bug."
+acceptance = ["Fail-before proof against the buggy commit", "Test remains after the fix", "Not-reproducible outcome is first-class"]
+
+[[issue]]
+id = "E36-03"
+title = "Post-deploy smoke verification"
+deps = ["E25-04"]
+summary = "Run smoke after deploy and emit a rollback signal on failure."
+acceptance = ["Integrates with the deploy workflow", "Time-boxed", "Result recorded"]
+
+[[issue]]
+id = "E36-04"
+title = "Synthetic canaries"
+deps = ["E25-02", "E37-05"]
+summary = "Generate CloudWatch Synthetics canaries from smoke and E2E journeys."
+acceptance = ["Idempotent provisioning", "Alarm wiring", "Cost guard"]
+
+[[issue]]
+id = "E36-05"
+title = "Error-to-issue deduplication and triage"
+deps = ["E36-01"]
+summary = "Group duplicate signals and open one actionable issue per root cause."
+acceptance = ["Dedup precision measured", "Links to affected code owners", "Rate-limited"]
+
+[[issue]]
+id = "E36-06"
+title = "Escaped-defect attribution"
+deps = ["E36-02", "E14-06"]
+summary = "Attribute production bugs to test gaps; feed autonomy demotion and gap ranking."
+acceptance = ["Attribution rules documented", "Feeds promotion rules", "Reviewed quarterly"]
+
+[[issue]]
+id = "E36-07"
+title = "Baseline live-signal standard for services"
+type = "docs"
+milestone = "M1"
+size = "S"
+deps = []
+summary = "Define minimum logging, metrics, and alarm conventions so 'mostly ad hoc' signals become consumable."
+acceptance = ["One-page standard", "Checklist usable in onboarding", "Reviewed by platform team"]
+
+# ===========================================================================
+[[epic]]
+id = "E37"
+title = "AWS Infrastructure"
+theme = "scale"
+goal = "Minimal, least-privilege AWS footprint for Bedrock access, state, and heavy-job workers."
+milestone = "M4"
+lang = ["aws"]
+
+[[issue]]
+id = "E37-01"
+title = "ADR: IaC tool for Val's AWS resources"
+type = "adr"
+size = "S"
+deps = []
+summary = "Choose CDK, Terraform, or CloudFormation based on org practice."
+acceptance = ["Decision recorded", "Repo layout for infra", "State/locking approach"]
+
+[[issue]]
+id = "E37-02"
+title = "GitHub OIDC role and Bedrock access"
+deps = ["E37-01"]
+summary = "Least-privilege role for Bedrock invocation trusted by repo and branch; model access configuration."
+acceptance = ["Deployed in the pilot account", "Policy reviewed", "Denied-path tests"]
+
+[[issue]]
+id = "E37-03"
+title = "Laptop authentication path"
+milestone = "M3"
+size = "S"
+deps = ["E09-07"]
+summary = "SSO profile setup guide and doctor checks."
+acceptance = ["Works with the company SSO", "No long-lived keys", "Troubleshooting section"]
+
+[[issue]]
+id = "E37-04"
+title = "State backend: S3 and DynamoDB"
+milestone = "M7"
+deps = ["E37-01"]
+summary = "Encrypted buckets and tables with lifecycle and access policies."
+acceptance = ["Deployed from code", "Retention set", "Access scoped per environment"]
+
+[[issue]]
+id = "E37-05"
+title = "Worker infrastructure for heavy jobs"
+milestone = "M7"
+deps = ["E37-01", "E04-05"]
+size = "L"
+summary = "ECS Fargate or CodeBuild runners, networking, ECR images, and egress controls for mutation and load jobs."
+acceptance = ["Same sandbox semantics as local", "Autoscaling and timeouts", "Cost tags"]
+
+[[issue]]
+id = "E37-06"
+title = "Ephemeral self-hosted GitHub runners"
+milestone = "M7"
+deps = ["E37-05"]
+summary = "On-demand runners for jobs needing VPC access (Sonar, LocalStack, private registries)."
+acceptance = ["Ephemeral per job", "Isolated per repo tier", "Patched images"]
+
+[[issue]]
+id = "E37-07"
+title = "Val operational observability in AWS"
+milestone = "M7"
+deps = ["E21-02", "E37-01"]
+summary = "Dashboards and alarms as code for Val's AWS footprint."
+acceptance = ["Provisioned from code", "On-call routing", "Runbooks linked"]
+
+[[issue]]
+id = "E37-08"
+title = "Secrets management and rotation"
+milestone = "M7"
+deps = ["E37-01", "E16-03"]
+summary = "Secrets Manager/SSM for App keys and Sonar tokens with rotation."
+acceptance = ["Rotation drill", "No secrets in workflow files", "Access audited"]
+
+[[issue]]
+id = "E37-09"
+title = "AWS cost controls"
+milestone = "M7"
+size = "S"
+deps = ["E37-01"]
+summary = "Budgets, tags, and anomaly detection for Bedrock and worker spend."
+acceptance = ["Alerts to the platform team", "Tags enforced", "Monthly report"]
+
+[[issue]]
+id = "E37-10"
+title = "ADR: multi-account / central AI gateway topology"
+type = "adr"
+milestone = "M7"
+size = "S"
+deps = ["E37-02"]
+summary = "Decide whether to centralize model access in a shared account if usage grows beyond one account."
+acceptance = ["Options and costs listed", "Trigger criteria for revisiting", "Decision recorded"]
+
+# ===========================================================================
+[[epic]]
+id = "E38"
+title = "Native Bedrock Backend"
+theme = "scale"
+goal = "Own the agent loop natively when evidence says the headless backend is the constraint."
+milestone = "M7"
+lang = ["rust", "aws"]
+
+[[issue]]
+id = "E38-01"
+title = "Spike: headless backend gap analysis"
+type = "spike"
+size = "S"
+deps = ["E15-05"]
+summary = "Using eval and cost data, identify what the headless backend limits (determinism, cost control, sandbox depth) and justify native work."
+acceptance = ["Evidence-based go/no-go", "Cost model for the native effort", "Decision recorded"]
+
+[[issue]]
+id = "E38-02"
+title = "Bedrock Converse client with tool-use loop"
+deps = ["E38-01", "E09-01"]
+size = "L"
+summary = "Streaming, tool-use loop, retries, and guardrail support behind AgentRuntime."
+acceptance = ["Passes the conformance suite", "Exact token accounting", "Backoff on throttling"]
+
+[[issue]]
+id = "E38-03"
+title = "Native tools: read and search"
+deps = ["E38-02"]
+summary = "Path-policy-enforcing read, list, and search tools."
+acceptance = ["Allowlist enforced in-process", "Large files chunked", "Binary files refused"]
+
+[[issue]]
+id = "E38-04"
+title = "Native tools: patch-based edit"
+deps = ["E38-02"]
+summary = "Safe edit tool with patch semantics, conflict detection, and write-path policy."
+acceptance = ["Edits outside allowlist impossible", "Idempotent application", "Round-trip fuzzed"]
+
+[[issue]]
+id = "E38-05"
+title = "Native tool: sandboxed command execution"
+deps = ["E38-02", "E04-03"]
+summary = "Run commands only through the container executor with budgets."
+acceptance = ["No host shell access", "Output bounded", "Timeouts enforced"]
+
+[[issue]]
+id = "E38-06"
+title = "Context management and compaction"
+deps = ["E38-02"]
+summary = "Summarization/compaction strategy with exact accounting and citation preservation."
+acceptance = ["Quality parity on the eval corpus", "Budget never exceeded", "Compaction events logged"]
+
+[[issue]]
+id = "E38-07"
+title = "Parity and quality evaluation versus headless"
+deps = ["E38-03", "E38-04", "E38-05", "E09-08", "E15-05"]
+summary = "Run conformance and eval corpus on both backends and compare quality, cost, and time."
+acceptance = ["Statistical comparison", "Report published", "Go/no-go for default"]
+
+[[issue]]
+id = "E38-08"
+title = "Bedrock Guardrails evaluation"
+type = "spike"
+size = "S"
+deps = ["E38-02"]
+summary = "Assess PII and prompt-attack filters for Val's inputs and outputs."
+acceptance = ["False-positive impact measured", "Recommendation recorded", "Config guidance"]
+
+[[issue]]
+id = "E38-09"
+title = "Per-role backend selection policy"
+deps = ["E38-07", "E02-01"]
+size = "S"
+summary = "Choose backend per role/repo via config with safe fallback."
+acceptance = ["Fallback tested", "Selection recorded in evidence", "Documented"]
