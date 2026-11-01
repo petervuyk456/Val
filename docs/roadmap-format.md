@@ -12,7 +12,7 @@ Run with `mise run <task>`, or directly with
 | mise task | Command | What it does |
 |---|---|---|
 | `roadmap:view` | `view [--port N] [--no-open]` | Build the viewer, serve it at `http://127.0.0.1:8765`, open the browser |
-| `roadmap:build` | `build` | Write a single self-contained file to `.roadmap-site/index.html` (shareable, works offline) |
+| `roadmap:build` | `build` | Write `.roadmap-site/index.html` (self-contained, works offline) and `.roadmap-site/artifact.html` (bare fragment for publishing as a Claude artifact) |
 | `roadmap:check` | `check` | Validate the graph; exit 1 with every problem listed |
 | `roadmap:ready` | `ready [--milestone M] [--limit N]` | Issues whose dependencies are all done: where to start |
 | `roadmap:path` | `path [--stage S \| --to ID]` | Longest remaining dependency chain |

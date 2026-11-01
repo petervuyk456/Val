@@ -34,27 +34,38 @@ const pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
 const msName = id => (msById.get(id) || {}).name || id;
 const safe = fn => { try { return fn(); } catch (e) { return null; } };
 
-const state = { drawer: null, lastHash: '#/overview', graph: { scope: 'epics', ms: new Set(), q: '', crit: false, hideDone: false }, viewApi: null };
+const state = { drawer: null, route: '/overview', graph: { scope: 'epics', ms: new Set(), q: '', crit: false, hideDone: false }, viewApi: null };
 
 // ---------------------------------------------------------------- routing
-function parseHash() {
-  const raw = location.hash.replace(/^#\/?/, '');
+// Only a plain "#view" name is written to the URL; everything else (scope,
+// filters, selected doc, open item) lives in memory, so links stay valid when
+// the page is embedded.
+function parseRoute(str) {
+  const raw = str.replace(/^#?\/?/, '');
   const [path, qs = ''] = raw.split('?');
   return { seg: path.split('/').filter(Boolean).map(decodeURIComponent), q: new URLSearchParams(qs) };
 }
+const parseHash = () => parseRoute(state.route);
 
-function onRoute() {
-  const { seg } = parseHash();
+function setUrl(view) { try { history.replaceState(null, '', `#${view}`); } catch (e) { /* embedded frames may refuse */ } }
+
+function go(route) {
+  const { seg } = parseRoute(route);
   if ((seg[0] === 'issue' || seg[0] === 'epic') && seg[1]) {
     state.drawer = { kind: seg[0], id: seg[1] };
-    history.replaceState(null, '', state.lastHash);
     if (!document.getElementById('app').childElementCount) renderView();
     renderDrawer();
     if (state.viewApi && state.viewApi.select) state.viewApi.select(seg[1]);
     return;
   }
-  state.lastHash = location.hash || '#/overview';
+  state.route = route.startsWith('/') ? route : `/${route}`;
+  setUrl(VIEWS.some(v => v[0] === seg[0]) ? seg[0] : 'overview');
   renderView();
+}
+
+function routeFromLocation() {
+  const raw = location.hash.replace(/^#\/?/, '').split('?')[0].split('/')[0];
+  return VIEWS.some(v => v[0] === raw) ? `/${raw}` : '/overview';
 }
 
 const VIEWS = [['overview', 'Overview'], ['roadmap', 'Roadmap'], ['graph', 'Dependency graph'], ['ladder', 'Adoption ladder'], ['docs', 'Docs']];
@@ -90,7 +101,7 @@ function issueRow(i, extra) {
     h('span', { class: 't' }, i.title, extra ? h('small', { text: extra }) : null),
     msChip(i.milestone), h('span', { class: 'chip', text: i.size }));
 }
-function open(kind, id) { location.hash = `#/${kind}/${id}`; }
+function open(kind, id) { go(`/${kind}/${id}`); }
 
 // ---------------------------------------------------------------- overview
 function viewOverview(app) {
@@ -118,7 +129,7 @@ function viewOverview(app) {
     h('div', { class: 'card' }, D.milestoneOrder.map(mid => {
       const m = msById.get(mid), mine = all.filter(i => i.milestone === mid), t = points(mine);
       const st = D.stages.find(s => s.requires[s.requires.length - 1] === mid);
-      return h('div', { class: 'row', onclick: () => { location.hash = `#/graph?scope=issues&ms=${mid}`; } },
+      return h('div', { class: 'row', onclick: () => go(`/graph?scope=issues&ms=${mid}`) },
         h('span', { class: 'id', text: mid }), h('span', { class: 't' }, m.name, h('small', { text: m.goal })),
         st ? h('span', { class: 'chip', text: `unlocks ${st.id} ${st.name}` }) : h('span', { class: 'chip', text: 'optional track' }),
         h('span', { class: 'chip', text: `${mine.length} issues · ${t} pts` }));
@@ -326,7 +337,7 @@ function viewGraph(app, _seg, q) {
   const critBtn = h('button', { class: 'toggle', type: 'button', 'aria-pressed': String(g.crit), text: 'Critical chain' });
   const doneBtn = h('button', { class: 'toggle', type: 'button', 'aria-pressed': String(g.hideDone), text: 'Hide done' });
   const note = h('span', { class: 'muted', id: 'gcount' });
-  const sync = () => history.replaceState(null, '', (state.lastHash = graphHash(g)));
+  const sync = () => { state.route = graphHash(g).slice(1); setUrl('graph'); };
   const redraw = fit => { sync(); refreshToolbar(); draw(fit); };
   const refreshToolbar = () => {
     msChips.replaceChildren(...D.milestoneOrder.map(m => h('button', { class: 'toggle', type: 'button', title: msName(m),
@@ -488,15 +499,15 @@ function renderDrawer() {
 
 // ---------------------------------------------------------------- chrome
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.drawer) closeDrawer(); });
-const themeBtn = document.getElementById('theme');
-const applyTheme = t => { if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; };
-applyTheme(safe(() => localStorage.getItem('val-roadmap-theme')));
-themeBtn.addEventListener('click', () => {
-  const cur = document.documentElement.dataset.theme;
-  const next = cur === 'dark' ? 'light' : cur === 'light' ? null : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark');
-  applyTheme(next);
-  safe(() => (next ? localStorage.setItem('val-roadmap-theme', next) : localStorage.removeItem('val-roadmap-theme')));
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href^="#/"]');
+  if (!a) return;
+  e.preventDefault();
+  go(a.getAttribute('href').slice(1));
 });
-window.addEventListener('hashchange', onRoute);
-onRoute();
+window.addEventListener('hashchange', () => {
+  const next = routeFromLocation();
+  if (parseRoute(next).seg[0] !== parseRoute(state.route).seg[0]) go(next);
+});
+go(routeFromLocation());
 })();

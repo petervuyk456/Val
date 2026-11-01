@@ -563,16 +563,31 @@ def build_payload(rm: Roadmap) -> dict:
     }
 
 
+STANDALONE_HEAD = (
+    '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
+    "<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}"
+    "body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>\n"
+    "</head>\n<body>\n"
+)
+
+
 def build_site(rm: Roadmap) -> Path:
+    """Write .roadmap-site/index.html (standalone) and artifact.html (bare fragment).
+
+    The fragment has no doctype/html/head/body, which is what the Claude Artifact
+    publisher expects; it wraps the fragment in its own skeleton.
+    """
     payload = build_payload(rm)
     template = (VIEWER_DIR / "viewer.html").read_text(encoding="utf-8")
     css = (VIEWER_DIR / "viewer.css").read_text(encoding="utf-8")
     js = (VIEWER_DIR / "viewer.js").read_text(encoding="utf-8")
     data = json.dumps(payload, separators=(",", ":")).replace("</", "<\\/")
-    out = template.replace("/*__CSS__*/", css).replace("/*__JS__*/", js).replace("__ROADMAP_DATA__", data)
+    fragment = template.replace("/*__CSS__*/", css).replace("/*__JS__*/", js).replace("__ROADMAP_DATA__", data)
     SITE_DIR.mkdir(exist_ok=True)
+    (SITE_DIR / "artifact.html").write_text(fragment, encoding="utf-8")
     target = SITE_DIR / "index.html"
-    target.write_text(out, encoding="utf-8")
+    target.write_text(STANDALONE_HEAD + fragment + "</body>\n</html>\n", encoding="utf-8")
     return target
 
 
