@@ -1,0 +1,258 @@
+# ===========================================================================
+[[epic]]
+id = "E17"
+title = "SonarQube Integration"
+theme = "integrations"
+goal = "Use SonarQube for ranking, quality gates, and reporting - whatever the edition - and degrade gracefully without it."
+milestone = "M1"
+lang = ["rust"]
+
+[[issue]]
+id = "E17-01"
+title = "Capability probe: val sonar probe"
+size = "S"
+deps = ["E00-03"]
+summary = "Detect version and edition, branch/PR analysis availability, token scope, quality-gate and measures API access, external-issue import support, and rate limits; write a capability profile."
+acceptance = ["Probe output drives a feature matrix", "Read-only requests only", "Result cached with expiry"]
+
+[[issue]]
+id = "E17-02"
+title = "Sonar API client crate"
+deps = ["E17-01"]
+summary = "Authenticated, paginated, retrying client with typed models and mock-server tests."
+acceptance = ["Handles edition differences", "Token never logged", "Contract tests against recorded responses"]
+
+[[issue]]
+id = "E17-03"
+title = "Metrics ingestion for gap ranking"
+deps = ["E17-02", "E06-01"]
+summary = "Per-file branch coverage, uncovered conditions, complexity, duplication, issues, and hotspots merged into gap scoring."
+acceptance = ["Sonar-vs-local discrepancies reported", "Staleness (analysis age) shown", "Missing files handled"]
+
+[[issue]]
+id = "E17-04"
+title = "Project and monorepo-package mapping"
+size = "S"
+deps = ["E17-02", "E02-01"]
+summary = "Map repos and workspace packages to Sonar project keys and handle the new-code period."
+acceptance = ["Multi-module projects supported", "Mapping lives in val.toml", "Unmapped packages reported"]
+
+[[issue]]
+id = "E17-05"
+title = "Quality gate status check"
+milestone = "M2"
+deps = ["E17-02"]
+summary = "Wait for the analysis task and read the gate result for a branch or PR when supported; otherwise main-branch semantics."
+acceptance = ["Timeout and retry policy", "Unsupported edition degrades to documented behavior", "Result recorded in evidence"]
+
+[[issue]]
+id = "E17-06"
+title = "Push Val-verified coverage to Sonar"
+milestone = "M2"
+deps = ["E17-04", "E19-03"]
+summary = "Generated workflows run the scanner with the verified Cobertura/LCOV paths so Sonar reflects real coverage."
+acceptance = ["Python and TS properties set correctly", "Monorepo paths mapped", "Verified by comparing Sonar and Val numbers"]
+
+[[issue]]
+id = "E17-07"
+title = "Spike: surface mutation / test-quality in Sonar"
+type = "spike"
+milestone = "M3"
+deps = ["E17-01", "E05-06"]
+summary = "Evaluate generic external issues versus custom measures versus out-of-band dashboards for mutation survivors and weak tests; recommend one."
+acceptance = ["Prototype on a dev project", "Edition constraints documented", "Decision recorded in an ADR"]
+
+[[issue]]
+id = "E17-08"
+title = "Implement chosen mutation-in-Sonar path"
+milestone = "M4"
+deps = ["E17-07"]
+summary = "Publish survivors and weak-test findings in the chosen form on the main branch."
+acceptance = ["Findings link back to the evidence bundle", "Idempotent re-publish", "Opt-in per repo"]
+
+[[issue]]
+id = "E17-09"
+title = "Sonar project provisioning via API"
+milestone = "M6"
+deps = ["E17-02", "E34-01"]
+summary = "Create projects, assign quality profile and gate, and manage tokens for new repos."
+acceptance = ["Dry-run diff", "Requires admin token held outside agents", "Idempotent"]
+
+[[issue]]
+id = "E17-10"
+title = "Sonar trend export for dashboards"
+milestone = "M6"
+size = "S"
+deps = ["E17-03", "E21-04"]
+summary = "Attribute coverage and quality movement to Val PRs over time."
+acceptance = ["Per-repo and fleet series", "Handles analysis gaps", "Exportable as CSV/JSON"]
+
+[[issue]]
+id = "E17-11"
+title = "No-Sonar fallback parity"
+size = "S"
+deps = ["E17-03", "E03-08"]
+summary = "Prove that ranking and gating work with local data only, and document differences."
+acceptance = ["Feature matrix by capability", "Ranking correlation with Sonar-backed ranking reported", "CI job runs with Sonar disabled"]
+
+# ===========================================================================
+[[epic]]
+id = "E18"
+title = "GitHub Integration"
+theme = "integrations"
+goal = "A least-privilege GitHub App integration for reading repos, publishing checks, and managing PR lifecycle idempotently."
+milestone = "M2"
+lang = ["rust"]
+
+[[issue]]
+id = "E18-01"
+title = "GitHub App design, permissions, and token minting"
+deps = []
+summary = "App manifest, JWT-to-installation-token flow in Rust, and local development flow."
+acceptance = ["Short-lived tokens only", "Works from laptop and GHA", "Permission manifest committed"]
+
+[[issue]]
+id = "E18-02"
+title = "REST/GraphQL client wrapper"
+deps = ["E18-01"]
+summary = "Retries, primary and secondary rate-limit handling, ETag caching, and pagination."
+acceptance = ["Rate-limit soak test", "Idempotent write helpers", "No token in logs"]
+
+[[issue]]
+id = "E18-03"
+title = "Branch and PR lifecycle"
+milestone = "M4"
+deps = ["E18-02", "E13-06"]
+summary = "val/-prefixed branches, commits, PR creation mirroring the repo template, labels, reviewers, and idempotent updates."
+acceptance = ["Re-running does not duplicate PRs", "Template headings mirrored", "Protected branches never pushed to"]
+
+[[issue]]
+id = "E18-04"
+title = "Check runs with annotations"
+deps = ["E18-02", "E07-11"]
+summary = "Publish gate results as check runs with file/line annotations and a summary."
+acceptance = ["Annotations capped and prioritized", "Advisory vs required semantics", "Fork-PR safe"]
+
+[[issue]]
+id = "E18-05"
+title = "CI and status reading"
+milestone = "M4"
+deps = ["E18-02"]
+summary = "Poll or subscribe to CI results with backoff; map failures to rerun or escalate."
+acceptance = ["Distinguishes flaky infra from test failures", "Timeouts bounded", "No busy polling"]
+
+[[issue]]
+id = "E18-06"
+title = "PR and issue comment UX"
+milestone = "M3"
+size = "S"
+deps = ["E18-02", "E11-04"]
+summary = "Spec review requests, reviewer findings, and summaries as update-in-place comments."
+acceptance = ["Single comment updated, not spammed", "Markdown tested", "Opt-out supported"]
+
+[[issue]]
+id = "E18-07"
+title = "Issue mining for regression targets"
+milestone = "M7"
+deps = ["E18-02", "E36-02"]
+summary = "Find bug-labeled issues and linked fix PRs as regression-test targets."
+acceptance = ["Label conventions configurable", "Fix commit located reliably", "Respects privacy settings"]
+
+[[issue]]
+id = "E18-08"
+title = "Spike: org policy inventory"
+type = "spike"
+size = "S"
+milestone = "M1"
+deps = []
+summary = "Inventory branch protection, required checks, CODEOWNERS, App approval workflow, and SSO constraints across target repos."
+acceptance = ["Per-repo matrix", "Blockers listed with owners", "Feeds rollout playbook"]
+
+[[issue]]
+id = "E18-09"
+title = "Multi-repo workspace materializer"
+milestone = "M6"
+deps = ["E18-02", "E33-01"]
+summary = "Sparse and shallow clones of N repos with caching and per-repo credentials."
+acceptance = ["Parallel clone within rate limits", "Read-only vs write targets enforced", "Cleanup guaranteed"]
+
+# ===========================================================================
+[[epic]]
+id = "E19"
+title = "GitHub Actions Automation"
+theme = "integrations"
+goal = "Reusable, hardened workflows so any repo adopts Val with a few lines, plus a synthesizer for new repos."
+milestone = "M2"
+lang = ["gha"]
+
+[[issue]]
+id = "E19-01"
+title = "Reusable workflow: val-gate"
+deps = ["E07-12", "E00-06"]
+summary = "Install the pinned Val binary, run `val verify --advisory` on PRs, publish a job summary, with caching."
+acceptance = ["Fork PRs run without secrets", "Documented 5-line adoption snippet", "Median overhead measured"]
+
+[[issue]]
+id = "E19-02"
+title = "CI recipe for the eval gate on Val itself"
+milestone = "M4"
+deps = ["E15-05"]
+summary = "Workflow running the eval corpus on Val changes with cost caps."
+acceptance = ["Budget enforced", "Results posted to PR", "Nightly full run"]
+
+[[issue]]
+id = "E19-03"
+title = "Workflow synthesizer: val ci init"
+size = "L"
+deps = ["E03-02", "E17-04"]
+summary = "Scaffold workflows per repo profile (py, ts, monorepo matrix), Sonar scanner steps, coverage artifacts, and markers; lint with actionlint."
+acceptance = ["Output passes actionlint", "Actions pinned by SHA, least-privilege permissions", "Never overwrites existing workflows without a diff"]
+
+[[issue]]
+id = "E19-04"
+title = "Reusable workflow: val-assist"
+milestone = "M4"
+deps = ["E19-01", "E18-03"]
+summary = "workflow_dispatch/scheduled workflow that runs the pipeline on one repo and opens PRs."
+acceptance = ["Concurrency control", "Budget inputs", "Kill switch respected"]
+
+[[issue]]
+id = "E19-05"
+title = "Central fleet workflow"
+milestone = "M6"
+deps = ["E34-02"]
+summary = "Matrix over manifest repos with concurrency limits, per-repo budgets, and a fleet summary."
+acceptance = ["Partial failure does not abort the fleet", "Summary table in the job output", "Rate limits respected"]
+
+[[issue]]
+id = "E19-06"
+title = "OIDC role assumption for Bedrock"
+milestone = "M4"
+lang = ["gha", "aws"]
+deps = ["E37-02"]
+summary = "Workflows assume a least-privilege role via GitHub OIDC; no long-lived keys."
+acceptance = ["Trust policy scoped to repo and branch", "Role session tags carry run id", "Revocation drill"]
+
+[[issue]]
+id = "E19-07"
+title = "Workflow security lint and hardening checks"
+size = "S"
+deps = ["E19-01"]
+summary = "Automated checks for unpinned actions, excess permissions, and pull_request_target pitfalls."
+acceptance = ["Runs on Val's and generated workflows", "Rules documented", "Violations block"]
+
+[[issue]]
+id = "E19-08"
+title = "Caching strategy"
+size = "S"
+deps = ["E19-01"]
+summary = "Cache the Val binary, dependency installs, mutation incremental data, and baselines."
+acceptance = ["Cache keys documented", "Poisoning considered", "Hit rate reported"]
+
+[[issue]]
+id = "E19-09"
+title = "Scheduled ratchet-bump workflow"
+milestone = "M5"
+deps = ["E02-05"]
+summary = "After merges, raise floors and open a PR for the ratchet file."
+acceptance = ["Bump requires green main", "Never lowers", "Batched weekly"]

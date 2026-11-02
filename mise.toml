@@ -1,0 +1,40 @@
+# Mise is optional. Every task is a thin wrapper over a command you can run
+# directly with Python 3.11+ (stdlib only, no installs):
+#   python3 tools/roadmap/val_roadmap.py <check|build|view|ready|path|stage|stats>
+#
+# Extra arguments pass through after `--`, e.g.:
+#   mise run roadmap:path -- --stage S3
+#   mise run roadmap:stage -- S1
+#   mise run roadmap:ready -- --milestone M1
+
+[tasks."roadmap:view"]
+description = "Build and open the visual roadmap + docs viewer (http://127.0.0.1:8765)"
+run = "python3 tools/roadmap/val_roadmap.py view"
+
+[tasks."roadmap:build"]
+description = "Build the self-contained viewer to .roadmap-site/index.html"
+run = "python3 tools/roadmap/val_roadmap.py build"
+
+[tasks."roadmap:check"]
+description = "Validate the roadmap graph: ids, deps, cycles, milestone ordering"
+run = "python3 tools/roadmap/val_roadmap.py check"
+
+[tasks."roadmap:ready"]
+description = "List issues whose dependencies are all done (start here)"
+run = "python3 tools/roadmap/val_roadmap.py ready"
+
+[tasks."roadmap:path"]
+description = "Longest remaining dependency chain (--stage S3 | --to E07-05)"
+run = "python3 tools/roadmap/val_roadmap.py path"
+
+[tasks."roadmap:stage"]
+description = "What must be built to reach an adoption stage (e.g. S1)"
+run = "python3 tools/roadmap/val_roadmap.py stage"
+
+[tasks."roadmap:stats"]
+description = "Issue and effort-point totals per milestone"
+run = "python3 tools/roadmap/val_roadmap.py stats"
+
+[tasks."roadmap:test"]
+description = "Unit tests for the roadmap tool"
+run = "python3 -m unittest discover -s tools/roadmap -p 'test_*.py' -v"

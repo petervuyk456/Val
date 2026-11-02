@@ -1,0 +1,211 @@
+# Roadmap metadata: milestones (how Val is BUILT) and adoption stages
+# (how a repo ADOPTS Val). Both exist because they answer different questions:
+#
+#   milestone -> "what do we build next, and what ships with it?"
+#   stage     -> "how much of Val is a given repo allowed/ready to use?"
+#
+# A stage is available once every milestone in its `requires` list is done.
+# Layer packs (milestone "L") are optional, independently adoptable extensions.
+
+[[milestone]]
+id = "M0"
+name = "Foundations"
+goal = "A buildable, well-governed Rust workspace with CI, ADRs, and the core domain model."
+ships = "Nothing user-facing. Unblocks everything; includes the threat model and the roadmap tooling itself."
+exit = [
+  "Workspace builds and passes fmt/clippy/nextest/deny in CI",
+  "ADRs 001-004 accepted",
+  "Release pipeline produces signed binaries",
+  "Threat model reviewed by the platform team",
+]
+
+[[milestone]]
+id = "M1"
+name = "Observe"
+goal = "Point Val at any repo and get a trustworthy, evidence-backed ranking of where testing is weak. No LLM. No writes."
+ships = "val doctor / index / assess; baseline coverage; Sonar-informed (or local) gap ranking; weak-existing-test audit."
+exit = [
+  "Gap report generated for 3-5 pilot repos (Python and TypeScript)",
+  "Pilot owners agree the top-10 gaps are genuinely the riskiest (calibration)",
+  "Works with and without SonarQube",
+]
+
+[[milestone]]
+id = "M2"
+name = "Gate"
+goal = "Deterministic verification of any test change - human or agent - as an advisory, then blocking, CI check with ratchets."
+ships = "val verify; reusable GHA workflow; diff-coverage, mutation-on-changed, flake and anti-pattern gates; container sandbox; Sonar quality-gate check."
+exit = [
+  "Advisory gate running on pilot repo PRs",
+  "False-positive rate under the agreed threshold after tuning",
+  "Every shortcut in the catalog is rejected by a red-team test",
+]
+
+[[milestone]]
+id = "M3"
+name = "Specify"
+goal = "Introduce the LLM safely: Assessor semantics and Architect specs, reviewed by humans. Still no code written by agents."
+ships = "AgentRuntime + headless backend; prompt system; eval harness; cost and budget controls; test specs posted for review."
+exit = [
+  "Spec usefulness rated >= target by pilot owners",
+  "Eval corpus scorecard established as baseline",
+  "Budget caps proven to stop runaway spend",
+]
+
+[[milestone]]
+id = "M4"
+name = "Assist"
+goal = "Builder + independent Reviewer produce PRs that pass the full gauntlet, with signed evidence, on pilot repos with 100% human review."
+ships = "val build / run; adversarial reviewer; evidence bundles; PR lifecycle; Python then TypeScript pilots."
+exit = [
+  "Pilot PR acceptance rate and mutation uplift meet targets",
+  "Zero gate bypass incidents; zero secret leaks",
+  "Eval scorecard gates Val releases",
+]
+
+[[milestone]]
+id = "M5"
+name = "Autonomy"
+goal = "Risk-tiered autonomy: auto-merge of narrow, low-risk change classes with kill switches and promotion rules."
+ships = "Policy engine, human gates, circuit breakers, ratchet automation, outcome KPIs."
+exit = [
+  "Auto-merge enabled for test-only changes in at least one tier-3 repo",
+  "Kill switch exercised in a game day",
+]
+
+[[milestone]]
+id = "M6"
+name = "Fleet"
+goal = "Run campaigns across 10-50 repos, with cross-repo reasoning for shared libraries."
+ships = "Fleet manifest and scheduler; central workflow; cross-repo graph; downstream impact testing; consumer-driven contracts; shared test-utils; dashboards."
+exit = [
+  "Campaign run across >= 10 repos within budget",
+  "Library change triggers downstream impact tests automatically",
+]
+
+[[milestone]]
+id = "M7"
+name = "Closed loop & Scale"
+goal = "Production signals become regression tests; heavy work moves to AWS workers; native Bedrock backend available."
+ships = "Signal ingestion; incident-to-test pipeline; canaries; ECS/CodeBuild workers; S3+DynamoDB state; native backend."
+exit = [
+  "At least one real incident converted to a merged regression test end to end",
+  "Heavy jobs run on AWS workers within cost targets",
+]
+
+[[milestone]]
+id = "L"
+name = "Layer packs (parallel track)"
+goal = "Per-test-layer generators and gates. Each pack is independently adoptable once M4 is available; order by repo need."
+ships = "Smoke, integration & contract, performance, E2E, data quality, delivery semantics, resilience, security/IaC."
+exit = [
+  "Each pack: gate first, then generation, then pilot",
+]
+
+# ---------------------------------------------------------------------------
+
+[[stage]]
+id = "S0"
+name = "Observe"
+requires = ["M0", "M1"]
+risk = "None. Read-only; no LLM; no network beyond optional SonarQube reads."
+summary = "A repo gets a ranked, evidence-backed gap report and a weak-existing-test audit."
+you_get = [
+  "Where tests are shallow, ranked by real risk (branches, churn, bug history, complexity)",
+  "A baseline to measure improvement against",
+]
+entry = ["Repo owner agrees to a read-only run", "val doctor passes"]
+exit = ["Owners validate the top gaps", "Baseline recorded"]
+rollback = "Delete the run directory. Nothing was changed."
+approver = "Repo owner"
+
+[[stage]]
+id = "S1"
+name = "Gate"
+requires = ["M0", "M1", "M2"]
+risk = "Low. A CI check that is advisory first; blocking only after tuning."
+summary = "Every PR's test changes - human or agent - are verified for real strength. Ratchets stop regression."
+you_get = [
+  "Diff-coverage and mutation score on changed code",
+  "Flake and anti-pattern detection on new tests",
+  "A ratchet: coverage and mutation floors that only rise",
+]
+entry = ["Stage S0 complete", "Pilot thresholds agreed", "Reusable workflow installed"]
+exit = ["False-positive rate under target", "Team agrees to flip advisory to blocking"]
+rollback = "Remove the workflow or flip to advisory; ratchet file is just data."
+approver = "Repo owner + platform team"
+
+[[stage]]
+id = "S2"
+name = "Specify"
+requires = ["M0", "M1", "M2", "M3"]
+risk = "Low. LLM reads code (in your Bedrock account) and writes a spec, not code."
+summary = "The Architect writes reviewable test specs for the top gaps. Humans (or later the Builder) implement them."
+you_get = [
+  "Concrete test plans: scenarios, boundaries, mock boundaries, data states",
+  "Characterization specs for legacy code",
+]
+entry = ["Stage S1 stable", "Data-handling policy accepted for the repo", "Budget set"]
+exit = ["Owners rate specs useful", "Spec validator rejects hand-seeded bad specs"]
+rollback = "Disable the spec job; specs are comments/files only."
+approver = "Repo owner + security"
+
+[[stage]]
+id = "S3"
+name = "Assist"
+requires = ["M0", "M1", "M2", "M3", "M4"]
+risk = "Medium. Agents write tests; all of it passes the gauntlet; every PR is reviewed by a human."
+summary = "Val opens PRs with new tests plus a signed evidence bundle. Humans review and merge 100% of them."
+you_get = [
+  "Tests that provably catch defects (mutation + fail-before/pass-after)",
+  "Evidence bundle on every PR",
+]
+entry = ["Stage S2 complete", "Eval scorecard meets bar", "Reviewer training done"]
+exit = ["Acceptance rate and quality targets met for N PRs", "No gate-bypass incidents"]
+rollback = "Pause the workflow (kill switch); close open PRs."
+approver = "Repo owner + platform team"
+
+[[stage]]
+id = "S4"
+name = "Autonomy"
+requires = ["M0", "M1", "M2", "M3", "M4", "M5"]
+risk = "Medium-High, bounded by policy. Narrow classes may auto-merge."
+summary = "Test-only changes in eligible repos merge automatically when every gate, Sonar, and CI are green."
+you_get = [
+  "Less review toil on low-risk test additions",
+  "Automatic ratchet bumps",
+]
+entry = ["Stage S3 track record meets promotion rules", "Kill switch tested"]
+exit = ["Revert rate and escaped-defect rate within bounds over a quarter"]
+rollback = "Demote autonomy level in policy; circuit breakers also demote automatically."
+approver = "Platform team lead + repo owner"
+
+[[stage]]
+id = "S5"
+name = "Fleet"
+requires = ["M0", "M1", "M2", "M3", "M4", "M5", "M6"]
+risk = "Medium. Many repos at once; bounded by budgets, quotas, and PR-volume caps."
+summary = "Campaigns across repos, cross-repo impact testing, shared test utilities, fleet dashboards."
+you_get = [
+  "Uniform baselines and priorities across 10-50 repos",
+  "Library changes tested against their consumers before release",
+]
+entry = ["At least two repos at S4", "Manifest complete", "Fleet budget approved"]
+exit = ["Campaign goals met within budget"]
+rollback = "Pause campaigns fleet-wide; repos continue at their own stage."
+approver = "Platform team lead"
+
+[[stage]]
+id = "S6"
+name = "Closed loop"
+requires = ["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]
+risk = "Medium. Reads production signals; writes only tests via the usual gated path."
+summary = "Incidents and alarms become regression tests; canaries and post-deploy smoke catch live issues."
+you_get = [
+  "Every escaped defect leaves behind a permanent test",
+  "Test-suite health scoring and flake quarantine",
+]
+entry = ["Signal sources agreed", "Escaped-defect baseline recorded"]
+exit = ["Escaped-defect rate trending down"]
+rollback = "Disable signal ingestion; existing tests remain."
+approver = "Platform team lead + service owners"

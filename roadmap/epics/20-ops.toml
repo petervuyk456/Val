@@ -1,0 +1,203 @@
+# ===========================================================================
+[[epic]]
+id = "E20"
+title = "Cost, Budget & Model Management"
+theme = "ops"
+goal = "Know what every run costs, cap it, and choose models per role with evidence."
+milestone = "M3"
+lang = ["rust"]
+
+[[issue]]
+id = "E20-01"
+title = "Usage and cost accounting"
+deps = ["E09-02"]
+summary = "Tokens and estimated cost per call, role, run, repo, and day from a maintained Bedrock pricing table; persisted."
+acceptance = ["Reconciles with AWS billing within tolerance", "Pricing table versioned", "Per-call attribution"]
+
+[[issue]]
+id = "E20-02"
+title = "Per-role model configuration"
+size = "S"
+deps = ["E02-01", "E09-07"]
+summary = "Model id, reasoning effort, max turns, and token limits per role, validated against models available in the account."
+acceptance = ["Unavailable models fail fast", "Defaults documented with rationale", "Overridable per repo"]
+
+[[issue]]
+id = "E20-03"
+title = "Budget caps and graceful stop"
+deps = ["E20-01"]
+summary = "Soft warning and hard stop per run, repo, day, and fleet; runs stop cleanly with partial artifacts."
+acceptance = ["Runaway loop test stops within one call of the cap", "Partial results preserved", "Cap breach is an auditable event"]
+
+[[issue]]
+id = "E20-04"
+title = "Cost per outcome metrics"
+milestone = "M4"
+size = "S"
+deps = ["E20-01", "E13-04"]
+summary = "Cost per merged PR, per killed mutant, and per branch covered, in the evidence bundle and reports."
+acceptance = ["Metrics defined in docs", "Shown in PR body", "Exported for dashboards"]
+
+[[issue]]
+id = "E20-05"
+title = "Prompt caching and context reuse"
+milestone = "M5"
+deps = ["E09-02"]
+summary = "Exploit backend caching for stable prefixes (charters, conventions) and measure savings."
+acceptance = ["Hit rates measured", "No quality regression on the eval corpus", "Configurable"]
+
+[[issue]]
+id = "E20-06"
+title = "Bedrock quota awareness and fleet throttling"
+milestone = "M6"
+deps = ["E09-07", "E34-03"]
+summary = "Respect RPM/TPM quotas with queueing and fairness across concurrent runs."
+acceptance = ["Quota exhaustion degrades throughput, not correctness", "Fair scheduling test", "Alert before limits"]
+
+[[issue]]
+id = "E20-07"
+title = "Model escalation policy"
+milestone = "M5"
+deps = ["E20-02", "E15-08"]
+summary = "Optionally retry with a stronger model after repeated gate failures, within budget."
+acceptance = ["Escalations counted and reported", "Never hides a failing gate", "Evidence shows models used"]
+
+# ===========================================================================
+[[epic]]
+id = "E21"
+title = "Observability of Val"
+theme = "ops"
+goal = "Know whether Val is helping: runs, gates, cost, outcomes, and health."
+milestone = "M3"
+lang = ["rust", "aws"]
+
+[[issue]]
+id = "E21-01"
+title = "Structured tracing and correlation ids"
+milestone = "M1"
+deps = ["E00-03"]
+summary = "tracing spans per run, role, and gate with JSON logs and a correlation id propagated to subprocesses."
+acceptance = ["Run id on every log line", "Verbose and quiet modes", "Secrets redacted"]
+
+[[issue]]
+id = "E21-02"
+title = "Metrics emission"
+milestone = "M5"
+deps = ["E21-01"]
+summary = "OpenTelemetry and CloudWatch EMF exporters with a documented metrics catalog."
+acceptance = ["Catalog documented", "Exporter optional/off by default locally", "Cardinality bounded"]
+
+[[issue]]
+id = "E21-03"
+title = "Run reports"
+milestone = "M2"
+deps = ["E01-04"]
+summary = "HTML/Markdown report of a run: state timeline, gates, evidence, cost."
+acceptance = ["Self-contained file", "Opens offline", "Linked from PR"]
+
+[[issue]]
+id = "E21-04"
+title = "Outcome KPIs"
+milestone = "M5"
+deps = ["E21-02", "E18-03"]
+summary = "PR acceptance rate, time to merge, revert rate, mutation and coverage uplift, escaped defects, escalation rate, and cost per merged PR."
+acceptance = ["Definitions agreed with the platform team", "Computed from stored data", "Trend and per-repo cuts"]
+
+[[issue]]
+id = "E21-05"
+title = "Dashboards as code"
+milestone = "M6"
+deps = ["E21-04"]
+summary = "CloudWatch or Grafana dashboards for platform team and repo owners."
+acceptance = ["Provisioned from code", "Fleet and per-repo views", "Documented"]
+
+[[issue]]
+id = "E21-06"
+title = "Health alerting"
+milestone = "M6"
+size = "S"
+deps = ["E21-02"]
+summary = "Alerts for stuck runs, error spikes, and cost anomalies."
+acceptance = ["Runbook per alert", "Noise reviewed after two weeks", "Tested via synthetic fault"]
+
+[[issue]]
+id = "E21-07"
+title = "Debug bundle"
+size = "S"
+deps = ["E09-06"]
+summary = "`val debug-bundle <run>` exports a redacted archive for support."
+acceptance = ["Redaction tested", "Size-capped", "Includes versions and config"]
+
+# ===========================================================================
+[[epic]]
+id = "E22"
+title = "CLI Experience & Developer Ergonomics"
+theme = "ops"
+goal = "A CLI that explains itself, fails clearly, and is pleasant for engineers and CI alike."
+milestone = "M1"
+lang = ["rust"]
+
+[[issue]]
+id = "E22-01"
+title = "CLI skeleton and command surface"
+deps = ["E00-03"]
+summary = "clap subcommands, global flags (--json, --repo, --dry-run, -v), completions, and the exit-code contract."
+acceptance = ["Help text reviewed", "Completions generated", "Stable JSON mode"]
+
+[[issue]]
+id = "E22-02"
+title = "val doctor"
+deps = ["E22-01"]
+summary = "Check git, container runtime, toolchains, Bedrock access, Sonar probe, and GitHub auth; print remediation hints."
+acceptance = ["Each check independent and fast", "Exit non-zero on blocking problems", "Works offline with partial results"]
+
+[[issue]]
+id = "E22-03"
+title = "Progress UX for TTY and CI"
+size = "S"
+deps = ["E22-01"]
+summary = "Live status for long runs; clean line-oriented output in CI with grouped log sections."
+acceptance = ["No ANSI in non-TTY", "GHA groups used", "Quiet mode"]
+
+[[issue]]
+id = "E22-04"
+title = "Dry-run and cost estimate"
+milestone = "M3"
+deps = ["E22-01", "E20-01"]
+summary = "Show what would run, files touched, and estimated spend before any LLM call."
+acceptance = ["Estimate within documented error", "No side effects in dry-run (tested)", "Works for fleet runs"]
+
+[[issue]]
+id = "E22-05"
+title = "val explain"
+milestone = "M2"
+size = "S"
+deps = ["E06-05", "E07-11"]
+summary = "Explain a gap, gate result, or verdict in plain language with next steps."
+acceptance = ["Covers every gate", "Links to docs", "Machine and human modes"]
+
+[[issue]]
+id = "E22-06"
+title = "Docs site from /docs and CLI reference"
+milestone = "M2"
+size = "S"
+deps = ["E22-01"]
+summary = "Publish docs (and generated CLI reference) alongside the roadmap viewer."
+acceptance = ["Built in CI", "Link-checked", "Versioned with releases"]
+
+[[issue]]
+id = "E22-07"
+title = "mise integration for consumers"
+milestone = "M2"
+size = "S"
+deps = ["E00-06"]
+summary = "Document and test installing Val via mise's github backend and optional tasks in consumer repos; mise stays optional."
+acceptance = ["Works without mise too", "Pinned versions", "Example mise.toml"]
+
+[[issue]]
+id = "E22-08"
+title = "val onboard wizard"
+milestone = "M3"
+deps = ["E02-07", "E19-03"]
+summary = "Guided onboarding: detect, assess, write config, generate workflow, and recommend the repo's starting adoption stage."
+acceptance = ["Non-interactive mode", "Never writes without confirmation", "Output matches the rollout playbook"]

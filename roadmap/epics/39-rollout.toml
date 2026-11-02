@@ -1,0 +1,237 @@
+# ===========================================================================
+[[epic]]
+id = "E39"
+title = "Rollout, Pilot & Enablement"
+theme = "rollout"
+goal = "Adopt incrementally: pilot each stage on real repos, learn, and expand with explicit entry/exit criteria."
+milestone = "M1"
+lang = ["any"]
+
+[[issue]]
+id = "E39-01"
+title = "Pilot repo selection criteria and nominations"
+type = "docs"
+size = "S"
+deps = []
+summary = "Select 3-5 pilots (at least one Python and one TypeScript, one library and one service) by shallow coverage, moderate criticality, healthy CI, and supportive owners."
+acceptance = ["Scoring rubric", "Pilots named with owners", "Org policy blockers from E18-08 considered"]
+
+[[issue]]
+id = "E39-02"
+title = "Baseline measurement for pilots"
+type = "docs"
+size = "S"
+deps = ["E39-01", "E06-02"]
+summary = "Record before-metrics: coverage, a mutation sample, escaped bugs, CI time, change-failure rate."
+acceptance = ["Stored in the StateStore", "Method repeatable", "Shared with owners"]
+
+[[issue]]
+id = "E39-03"
+title = "Stage S0 pilot: observe"
+deps = ["E06-04", "E39-01"]
+summary = "Run assess on pilot repos; owners validate the top gaps; calibrate the scoring weights."
+acceptance = ["Calibration notes recorded", "Weights tuned and versioned", "Go/no-go for S1"]
+
+[[issue]]
+id = "E39-04"
+title = "Stage S1 pilot: advisory gate, then blocking"
+milestone = "M2"
+deps = ["E19-01", "E39-02"]
+summary = "Install the gate in advisory mode; tune false positives; agree thresholds; flip to blocking with a ratchet."
+acceptance = ["False-positive rate under target", "Thresholds agreed and recorded", "Owner sign-off on blocking"]
+
+[[issue]]
+id = "E39-05"
+title = "Rollout playbook and onboarding checklist"
+milestone = "M2"
+type = "docs"
+size = "S"
+deps = ["E18-08"]
+summary = "Per-stage entry/exit criteria, rollback steps, and a one-page checklist per repo."
+acceptance = ["Matches meta.toml stages", "Used by `val onboard`", "Reviewed by two repo owners"]
+
+[[issue]]
+id = "E39-06"
+title = "Stage S2 pilot: specs reviewed by owners"
+milestone = "M3"
+deps = ["E11-04", "E39-04"]
+summary = "Architect specs for top gaps are reviewed by owners; collect usefulness ratings."
+acceptance = ["Usefulness above the agreed bar", "Rejected specs categorized", "Feedback fed into prompts"]
+
+[[issue]]
+id = "E39-07"
+title = "Stage S3 pilot: Python PRs with 100% human review"
+milestone = "M4"
+deps = ["E13-06", "E18-03", "E39-06"]
+summary = "Val opens test PRs on Python pilots; track acceptance, mutation uplift, review time, and issues found."
+acceptance = ["Scorecard per PR", "Retrospective held", "No gate-bypass incidents"]
+
+[[issue]]
+id = "E39-08"
+title = "Stage S3 pilot: TypeScript PRs"
+milestone = "M4"
+deps = ["E39-07", "E24-04"]
+summary = "Repeat for TypeScript including a pnpm workspace package."
+acceptance = ["Same targets as Python", "Monorepo-specific issues logged", "Go/no-go for S4"]
+
+[[issue]]
+id = "E39-09"
+title = "Reviewer guide: how to review a Val PR"
+milestone = "M4"
+type = "docs"
+size = "S"
+deps = ["E13-06"]
+summary = "Short guide and checklist for human reviewers: what the evidence means, what to distrust, how to escalate."
+acceptance = ["Under two pages", "Walkthrough on a real PR", "Feedback loop link"]
+
+[[issue]]
+id = "E39-10"
+title = "Platform operating runbook"
+milestone = "M5"
+type = "docs"
+deps = ["E14-05", "E21-02"]
+summary = "On-call, kill switch use, incident response, and communication templates for Val; extended with alert-specific runbooks when health alerting lands (E21-06)."
+acceptance = ["Game day executed", "Escalation paths", "Alert runbook links added when E21-06 ships"]
+
+[[issue]]
+id = "E39-11"
+title = "Success metrics and review cadence"
+milestone = "M0"
+type = "docs"
+size = "S"
+deps = []
+summary = "Define 'confident change': change-failure rate, time to merge, escaped defects, and test-suite health, with a quarterly review."
+acceptance = ["Metric definitions", "Targets per stage", "Owner and cadence"]
+
+[[issue]]
+id = "E39-12"
+title = "Fleet expansion waves"
+milestone = "M6"
+deps = ["E34-06", "E39-08"]
+summary = "Expand 3-5 to 10 to 25 to 50 repos with entry criteria per wave, capacity checks, and rollback."
+acceptance = ["Wave plan published", "Capacity model", "Per-wave retrospective"]
+
+# ===========================================================================
+[[epic]]
+id = "E40"
+title = "Roadmap Tooling (this repo)"
+theme = "meta"
+goal = "The roadmap itself is data: validated, visual, and later synchronized to GitHub issues."
+milestone = "M0"
+lang = ["python"]
+
+[[issue]]
+id = "E40-01"
+title = "Roadmap data model and validator"
+status = "done"
+deps = []
+summary = "TOML epics/issues with deps, milestones, and stages; validator for ids, cycles, and milestone ordering."
+acceptance = ["Cycles and missing deps rejected", "Milestone ordering enforced", "Runs in stdlib-only Python"]
+
+[[issue]]
+id = "E40-02"
+title = "Static roadmap and docs viewer"
+status = "done"
+deps = ["E40-01"]
+summary = "Self-contained HTML with roadmap, dependency graph, adoption ladder, ready queue, and rendered docs."
+acceptance = ["Works offline", "Dark and light themes", "No console errors"]
+
+[[issue]]
+id = "E40-03"
+title = "mise tasks for the roadmap"
+status = "done"
+deps = ["E40-01"]
+size = "S"
+summary = "roadmap:check, :build, :view, :ready, :path tasks wrapping the Python tool."
+acceptance = ["Tasks work without mise too via python3", "Documented in README", "Check is CI-ready"]
+
+[[issue]]
+id = "E40-04"
+title = "Roadmap-to-GitHub issue exporter"
+milestone = "L"
+deps = ["E40-01"]
+summary = "Generate GitHub issues, sub-issues, labels, and milestones from the roadmap, idempotently, with dry-run."
+acceptance = ["Round-trip stable ids in issue bodies", "Dry-run diff", "Epics as parents with sub-issues"]
+
+[[issue]]
+id = "E40-05"
+title = "Status sync from GitHub"
+milestone = "L"
+deps = ["E40-04"]
+size = "S"
+summary = "Reflect issue open/closed state back into roadmap status and the viewer."
+acceptance = ["One-way sync documented", "Conflicts surfaced", "Viewer shows sync time"]
+
+[[issue]]
+id = "E40-06"
+title = "Roadmap CI check"
+deps = ["E40-03"]
+size = "S"
+lang = ["gha"]
+summary = "Workflow that runs roadmap:check on PRs touching roadmap/ or docs/."
+acceptance = ["Required check", "Fast", "Pinned actions"]
+
+# ===========================================================================
+[[epic]]
+id = "E41"
+title = "Backlog: Later Bets"
+theme = "meta"
+goal = "Valuable ideas deliberately not scheduled; each promotes into an epic when evidence or capacity arrives."
+milestone = "L"
+lang = ["any"]
+
+[[issue]]
+id = "E41-01"
+title = "Observability as a tested feature"
+type = "spike"
+deps = ["E26-02"]
+summary = "Tests asserting logs, metrics, and traces are emitted and alarms fire."
+acceptance = ["Feasibility assessed", "Exemplar on one service", "Scope proposal"]
+
+[[issue]]
+id = "E41-02"
+title = "Migration safety tests"
+type = "spike"
+deps = ["E26-04"]
+summary = "Rolling-deploy compatibility, rollback, and forward-only migration checks."
+acceptance = ["Pattern catalog", "Exemplar", "Scope proposal"]
+
+[[issue]]
+id = "E41-03"
+title = "Metamorphic and differential testing library"
+type = "spike"
+deps = ["E29-06"]
+summary = "Reusable metamorphic relations for analytical code."
+acceptance = ["Relations catalog", "Exemplar", "Scope proposal"]
+
+[[issue]]
+id = "E41-04"
+title = "Time-zone, DST, and numeric-precision pack"
+type = "spike"
+deps = ["E12-04"]
+summary = "Dedicated generators for time and numeric edge cases in financial and analytical code."
+acceptance = ["Edge-case catalog", "Hypothesis/fast-check strategies", "Scope proposal"]
+
+[[issue]]
+id = "E41-05"
+title = "Learn from review feedback"
+type = "spike"
+deps = ["E39-07"]
+summary = "Turn recurring human reviewer comments into rubric rules and prompt improvements, validated on the eval corpus."
+acceptance = ["Feedback taxonomy", "Safe-update loop", "Scope proposal"]
+
+[[issue]]
+id = "E41-06"
+title = "Mutation-aware generation research"
+type = "spike"
+deps = ["E08-08"]
+summary = "Investigate using survivors to seed generation without overfitting."
+acceptance = ["Experiment design", "Held-out evaluation", "Findings write-up"]
+
+[[issue]]
+id = "E41-07"
+title = "Accessibility testing at scale"
+type = "spike"
+deps = ["E28-04"]
+summary = "Extend accessibility checks beyond opt-in axe scans."
+acceptance = ["Need assessed", "Exemplar", "Scope proposal"]
